@@ -1,0 +1,163 @@
+#!/bin/bash
+#: Title		:encryption_services
+#: Date			:2019-07-13
+#: Author		:adebayo10k
+#: Version		:1.0
+#: Description	:script to contain dummy headers, args test, environment variable \ 
+#: Description	:assignments and exports... common to most new scripts 
+#: Description	:echo this file into the new script
+#: Description	:to backup configurations, revocation certs and keys in appropriate ways
+#: Description	:integrate with existing system of backup, synchronisation and encryption 
+#: Description	:ssh into remotes to backup their keys too
+#: Options		:
+##
+echo "USAGE: $(basename $0) <PROD|DEV>" 
+## at command line:~# 
+##
+#######################################################################
+
+## REMEMBER TO ADD THE PATH TO THIS PROJECT TO SYNC EXCLUDES!!! 
+
+#######################################################################
+
+## REMEMBER TO CREATE A GOOD SYSTEM OF VARIABLE SEMANTICS BEFORE
+# STARTING TO ASSIGN NAMES. AVOID ON-THE-FLY NAMING. 
+
+#######################################################################
+
+# if we're located outide an executable PATH directory, (eg in a git tracked project directory)
+# soft link from PATH directory located namesake
+# ln -s TARGET LINK
+
+#######################################################################
+
+# the parent process - so we set any environment variables here.
+## AND REMEMBER TO SANITISE CODE
+
+#######################################################################
+
+
+## EXIT CODES:
+E_UNEXPECTED_BRANCH_ENTERED=10
+E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
+E_INCORRECT_NUMBER_OF_ARGS=12
+E_UNEXPECTED_ARG_VALUE=13
+E_REQUIRED_FILE_NOT_FOUND=20
+E_UNKNOWN_RUN_MODE=30
+E_UNKNOWN_EXECUTION_MODE=31
+
+export E_UNEXPECTED_BRANCH_ENTERED
+export E_OUT_OF_BOUNDS_BRANCH_ENTERED
+export E_INCORRECT_NUMBER_OF_ARGS
+export E_UNEXPECTED_ARG_VALUE
+export E_REQUIRED_FILE_NOT_FOUND
+export E_UNKNOWN_RUN_MODE
+export E_UNKNOWN_EXECUTION_MODE
+
+#################################
+
+# TEST COMMAND LINE ARGS
+if [ $# -ne 1 ]
+then
+	echo "Incorrect number of command line args. Exiting now..."
+	echo "Usage: $(basename $0) <PROD|DEV>"
+	exit E_INCORRECT_NUMBER_OF_ARGS
+fi
+
+# if ! [[ "${1}" = 'DEV' -o "${1}" = 'PROD' ]]
+if ! [[ "${1}" = 'DEV' || "${1}" = 'PROD' ]] 
+then
+	echo "Incorrect command line arg.  Exiting now..."
+	echo "Usage: $(basename $0) <PROD|DEV>"
+	exit E_UNEXPECTED_ARG_VALUE
+fi
+
+#################################
+
+# SET PROGRAM RUN MODE:
+# passed in from command line, this is set to:
+# DEV when running in non-kali test/development environment
+# PROD when running in kali live/production environment
+RUN_MODE=$1 
+export RUN_MODE
+
+#################################
+
+## TODO: THIS will have to be a relative path, once all
+## directories including the one in which THIS script is put (eg. bin, usr/local/bin)
+## have been specified, exported and globally known.
+## AND REMEMBER TO SANITISE CODE
+
+echo "This script is called $0"
+echo "The base directory: ${0%'/'"$(basename $0)"}" 
+
+## remove from end of full path: a directory delimiter and the basename
+script_root_dir="${0%'/'"$(basename $0)"}"  
+echo "Script root directory set to: $script_root_dir"
+export script_root_dir
+
+# GLOBAL VARIABLE DECLARATIONS:
+
+# SET THE SCRIPT ROOT DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
+
+function dummy
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+dummy
+
+## USE CASE - CALLED BY audit_list_maker TO GPG ENCRYPT A SINGLE FILE
+#
+# decides whether being called directly or by another script
+# takes in and assigns the parameters
+# tests for some preconditions:
+# - tests its environment - config files, `which gpg`, 
+# - test the validity of the provided parameters
+# if all good, es shows user the command it wants to execute
+# if user give ok, es executes the command(s)
+# es tests resulting postconditions
+# es reports
+
+
+#############################################################################
+
+# TEST FOR PRECONDITIONS
+
+#############################################################################
+
+
+# 
+#
+#
+#
+#
+
+
+
+
+#############################################################################
+
+# TEST FOR POSTCONDITIONS
+
+#############################################################################
+
+#ssh hostname ## this command likely to be read in from file
+
+## definitely control the hosts on which this program can run
+#
+# hostname will determine which ssh code runs
+#
+# these files need to be backed up and encrypted:
+#public keyrings such as:
+#~/.gnupg/pubring.gpg 
+#~/.gnupg/pubring.kbx
+#
+#these revocation certs need to be CIA stored, so backup and encryption as well as on separate media
+#~/.gnupg/opengpg_revocs.d/
+#
+#integration with existing system may look like:
+#- an option to run this script post-shred an pre-mutables synchronisation
