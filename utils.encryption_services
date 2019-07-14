@@ -3,9 +3,9 @@
 #: Date			:2019-07-13
 #: Author		:adebayo10k
 #: Version		:1.0
-#: Description	:script to contain dummy headers, args test, environment variable \ 
-#: Description	:assignments and exports... common to most new scripts 
-#: Description	:echo this file into the new script
+#: Description	:script provides encryption services both to other scripts  
+#: Description	:and to the command-line user.  
+#: Description	:to encrypt on or more files.
 #: Description	:to backup configurations, revocation certs and keys in appropriate ways
 #: Description	:integrate with existing system of backup, synchronisation and encryption 
 #: Description	:ssh into remotes to backup their keys too
@@ -14,10 +14,6 @@
 echo "USAGE: $(basename $0) <PROD|DEV>" 
 ## at command line:~# 
 ##
-#######################################################################
-
-## REMEMBER TO ADD THE PATH TO THIS PROJECT TO SYNC EXCLUDES!!! 
-
 #######################################################################
 
 ## REMEMBER TO CREATE A GOOD SYSTEM OF VARIABLE SEMANTICS BEFORE
@@ -83,22 +79,18 @@ export RUN_MODE
 
 #################################
 
-## TODO: THIS will have to be a relative path, once all
-## directories including the one in which THIS script is put (eg. bin, usr/local/bin)
-## have been specified, exported and globally known.
-## AND REMEMBER TO SANITISE CODE
+# SET THE SCRIPT ROOT DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
 
-echo "This script is called $0"
-echo "The base directory: ${0%'/'"$(basename $0)"}" 
+# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
+echo "The absolute path to this script is: $0"
 
-## remove from end of full path: a directory delimiter and the basename
+## remove from end of full path to script: a directory delimiter and the basename
 script_root_dir="${0%'/'"$(basename $0)"}"  
 echo "Script root directory set to: $script_root_dir"
 export script_root_dir
 
 # GLOBAL VARIABLE DECLARATIONS:
 
-# SET THE SCRIPT ROOT DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
 
 function dummy
 {
@@ -109,6 +101,108 @@ function dummy
 }
 
 dummy
+
+requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
+# might also be useful to validate that no parameters were given from the command line.
+
+echo "	==================================================================="
+echo "	||                Welcome to ENCRYPTION SERVICES                   ||  author: Damola Adebayo"  
+echo "	==================================================================="
+echo
+echo " Type q to quit."
+echo && sleep 2
+
+
+
+
+#########################################################################################################
+function read_fs_to_mount()
+{
+## !!!!!!!! remove all [REFERENCES TO ENCRYPTION PURPOSES] before publishing these scripts - although,
+## this is useful reference information at mount-time. hmmm? 
+echo
+echo ">>>   Which ecrypfs filesystem would you like to mount...?   :::"
+echo
+## USE THIS DIRECTORY FOR:
+## - files that need to be backed up to separate media \
+## - AND that must never leave the trusted network due to CIA \
+## - AND that must be available for comparison if in any doubt \
+## - AND that...
+## password db, revoc certs, 
+echo ">>>   1 = Maxtor ext HDD research/ [USE FOR CLEAR TEXT PASSWORD DB]"
+## This one gets sent over the internet:
+echo ">>>   2 = Maxtor ext HDD secure/ [USE FOR ENCRYPTED MUTABLE FILES READY TO CLOUD TRANSFER]"
+echo ">>>   3 = Maxtor ext HDD filesystem root, mountpoint: /media/damola/2TB_ext_hdd [NO CURRENT USE]" ## remove this option
+echo
+echo "======================================================"
+echo
+echo ">>>   4 = E530c dev/sda1 partition, research/ [USE FOR KEYFILE]"
+echo ">>>   5 = E530c dev/sda1 partition, secure/ [USE FOR KEYFILE SOURCE]"
+echo ">>>   6 = E530c dev/sda1 partition root, mountpoint: $HOME/Case [NO CURRENT USE]" ## remove this option completely
+echo
+echo "======================================================"
+echo
+echo ">>>   7 = E6520 dev/sda5 partition, $HOME/research/ [USE TO BE DETERMINED]"
+echo ">>>   8 = E6520 dev/sda5 partition, $HOME/secure/ [USE FOR KEYFILE AND KEYFILE SOURCE]"
+echo
+echo "======================================================"
+echo
+echo ">>>   9 = 5490 dev/sda5 partition, $HOME/research/ [USE TO BE DETERMINED]"
+echo ">>>   10 = 5490 dev/sda5 partition, $HOME/secure/ [USE FOR KEYFILE ONLY]"
+echo
+echo "======================================================"
+echo
+
+read file_system
+
+do_mounts $file_system
+
+}
+
+###############################################################################################
+# if requested_mount_dir is set (don't forget to unset when returning to calling program),
+# use it to get file_system from mount_options_lookup_table, not read. change file_system to mount_option_index
+function query_fs_to_mount()
+{
+dir_to_mount=$1
+
+for k in "${!mount_options_lookup_table[@]}"
+do
+	echo "key  : $k"
+	echo "value: ${mount_options_lookup_table[$k]}" && echo
+	if [ "$k" == "$dir_to_mount" ]
+	then
+		file_system="${mount_options_lookup_table[$k]}"
+		echo "mount option index FOUND: $file_system" && echo
+		break
+	fi
+done
+
+#exit 0
+
+do_mounts $file_system
+
+}
+
+###############################################################################################
+
+
+
+
+case $requested_mount_dir in
+	"not_yet_set")	read_fs_to_mount ## 
+									;;
+	*) 		echo "requested directory passed into mount_ecrypt_dirs ok" && sleep 1 && echo
+				echo "requested directory is $requested_mount_dir" && sleep 1 && echo
+
+				query_fs_to_mount "$requested_mount_dir"
+				;;
+esac 
+
+#unset $requested_mount_dir
+
+
+
 
 ## USE CASE - CALLED BY audit_list_maker TO GPG ENCRYPT A SINGLE FILE
 #
