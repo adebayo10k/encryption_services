@@ -11,7 +11,7 @@
 #: Description	:ssh into remotes to backup their keys too
 #: Options		:
 ##
-echo "USAGE: $(basename $0) <plaintext_file>" 
+echo "USAGE: $(basename $0) <file paths>" # zero or more strings (representing fullpaths to files)
 ## at command line:~# 
 ##
 #######################################################################
@@ -39,6 +39,7 @@ E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
 E_INCORRECT_NUMBER_OF_ARGS=12
 E_UNEXPECTED_ARG_VALUE=13
 E_REQUIRED_FILE_NOT_FOUND=20
+E_REQUIRED_PROGRAM_NOT_FOUND=21
 E_UNKNOWN_RUN_MODE=30
 E_UNKNOWN_EXECUTION_MODE=31
 
@@ -47,6 +48,7 @@ export E_OUT_OF_BOUNDS_BRANCH_ENTERED
 export E_INCORRECT_NUMBER_OF_ARGS
 export E_UNEXPECTED_ARG_VALUE
 export E_REQUIRED_FILE_NOT_FOUND
+export E_REQUIRED_PROGRAM_NOT_FOUND
 export E_UNKNOWN_RUN_MODE
 export E_UNKNOWN_EXECUTION_MODE
 
@@ -54,6 +56,9 @@ export E_UNKNOWN_EXECUTION_MODE
 
 
 # GLOBAL VARIABLE DECLARATIONS:
+
+declare -a incoming_array=()
+incoming_string=""
 
 plaintext_file_fullpath=""
 plaintext_dir_fullpath=""
@@ -88,15 +93,19 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 
 read
 
-incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
-# might also be useful to validate that no parameters were given from the command line.
+
+
 
 
 ###############################################################################################
-#########################################################################################################
-function dummy
+###############################################################################################
+###############################################################################################
+# creates a command string for the gpg pubic key encryption of the plaintext file
+# shows user the command it wants to execute and await user confirmation 
+# executes the command
+function create_and_execute_file_encryption_command
 {
-	service_option="$1"
+	service_option="NULL"
 	
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
@@ -105,28 +114,71 @@ function dummy
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
 }
-
-#########################################################################################################
-function get_service_type
+###############################################################################################
+# list the keys available on the system
+# get the users' gpg user-id 
+# test that valid, ultimate trust fingerprint exists for that user-id
+function check_gpg_user_keys
 {
-##
-	echo
-	echo ">>>   Which encryption type services do you require...?   :::"
-	echo
-	### 
-	echo ">>>   1 = gpg encryption of one or more plaintext files"
-	## 
-	echo ">>>   2 = gpg decryption of one or more encrypted files"
-	echo ">>>   3 = backup of keys and certs to synch'd location"
-	echo
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-	read service_option
+	userid=""
 
-	dummy $service_option
+	# issue gpg commands to list keys for now... just as a prompt of user-id details
+	bash -c "gpg --list-key"
+	bash -c "gpg --list-secret-keys"
+
+	# get the users' gpg UID from terminal
+	echo "Please enter your user-id (example: smoothcoder@sharkpool.org)"
+
+	read userid
+
+	# now check for a key-pair fingerprint. TODO: if not found, user should have the opportunity to try again
+	# TODO: THIS IS NOT THE RIGHT TEST, FIND SOMETHING BETTER LATER
+	bash -c "gpg --fingerprint "$userid" 2>/dev/null" # suppress stderr (but not stdout for now)
+	if [ $? -eq 0 ]
+	then
+		echo "KEY-PAIR FINGERPRINT IDENTIFIED FOR USER-ID OK"
+	else
+		echo "FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID"
+		# -> exit due to failure of any of the above tests:
+		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+	fi
+
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
 }
 
 ###############################################################################################
+
+# check that the OpenPGP tool gpg is installed on the system
+#  
+function check_encryption_platform
+{
+		
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	bash -c "which gpg 2>/dev/null" # suppress stderr (but not stdout for now)
+	if [ $? -eq 0 ]
+	then
+		echo "OpenPGP PROGRAM INSTALLED ON THIS SYSTEM OK"
+	else
+		echo "FAILED TO FIND THE REQUIRED OpenPGP PROGRAM"
+		# -> exit due to failure of any of the above tests:
+		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+	fi
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+#########################################################################################################
+
 ###############################################################################################
 
 # firstly, we test that the parameter we got is of the correct form for an absolute file path 
@@ -145,12 +197,13 @@ function test_file_path_valid_form
 	if [[ $test_file_fullpath =~ $abs_filepath_regex ]]
 	then
 		echo "THE FORM OF THE INCOMING PARAMETER IS THEREFORE OF A VALID ABSOLUTE FILE PATH"
+		# from now on, we can talk about a plaintext file path...
 		plaintext_file_fullpath="$test_file_fullpath"
 		echo "The full path to the plaintext file is: $plaintext_file_fullpath"
 
 		## ASSUMING THE FILE IS NOT 'SOMEHOW' SITTING IN THE ROOT DIRECTORY
 		plaintext_dir_fullpath=${plaintext_file_fullpath%/*}
-		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//')
+		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
 		echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
 	else
 		echo "AN INCOMING PARAMETER WAS SET, BUT WAS NOT A MATCH FOR OUR KNOWN PATH FORM REGEX "$abs_filepath_regex"" && sleep 1 && echo
@@ -207,6 +260,41 @@ function test_file_path_access
 }
 
 ###############################################################################################
+#########################################################################################################
+## SET GLOBAL VARIABLES REGARDING SPECIFIC SERVICE
+function dummy
+{
+	service_option="$1"
+	
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	echo "user has selected option: $service_option"
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+#########################################################################################################
+function get_required_service_type
+{
+##
+	echo
+	echo ">>>   Which encryption type services do you require...?   :::"
+	echo
+	### 
+	echo ">>>   1 = gpg encryption of one or more plaintext files"
+	## 
+	echo ">>>   2 = gpg decryption of one or more encrypted files"
+	echo ">>>   3 = backup of keys and certs to synch'd location"
+	echo
+
+	read service_option
+
+	dummy $service_option
+
+}
+
+###############################################################################################
 ###############################################################################################
 
 echo
@@ -215,30 +303,102 @@ echo "STARTING THE 'MAIN SECTION'"
 echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 echo
 
+# #########
 
-case $incoming_parameter in
-	"not_yet_set")			get_service_type ## 
-							;;
+# NEW STRATEGY:
+# ENCRYPTION SERVICES WILL NOW:
+#ESTABLISH WHAT SERVICES ARE REQUIRED
+#ESTABLISH WHAT TYPE OF ARGUMENTS IT HAS BEEN CALLED WITH AND HOW MANY
+#DO INPUT VALIDATION OF THOSE ARGUMENTS
+#... IT WILL THEN CALL THE APPROPRIATE SPECIALISED SCRIPT FOR THE JOB
 
-				*)			echo "plaintext file path (absolute) offered as: "$incoming_parameter""
-							echo "regular expression set to: "$abs_filepath_regex"" && sleep 1 && echo
+# 0. FIND OUT WHICH SERVICE IS REQUIRED
 
-							#create and test preconditions
-							test_file_path_valid_form "$incoming_parameter"					
-							test_file_path_access "$plaintext_file_fullpath" "$plaintext_dir_fullpath"
+get_required_service_type
 
-							#exit 0
+# 1. DETERMINE HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
+number_of_incoming_params=$#
 
-							#test_environment
-							#get_encryption_parameters # from user
+echo "Number of arguments passed in = $number_of_incoming_params"
 
-							# meat
-							#create_command
+# 2. DETERMINE DATA TYPE | DO A FILE PATH VALIDATION TEST | 
 
-							# test postconditions
+# put the incoming data into an array 
+if [ $number_of_incoming_params -gt 0 ]
+then
+	incoming_array=( "$@" )
 
-							;;
-esac 
+	# temporary debug check
+	for incoming_string in "${incoming_array[@]}"
+	do
+		echo "$incoming_string"
+	done
+fi
+
+
+# 3. TEST THAT INCOMING STRINGS ARE ALL VALID AND ACCESSIBLE FILE PATHS
+
+for incoming_string in "${incoming_array[@]}"
+do
+	echo "incoming string is now: $incoming_string"
+	test_file_path_valid_form "$incoming_string"
+	test_file_path_access "$plaintext_file_fullpath" "$plaintext_dir_fullpath"
+
+done
+
+# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT
+
+# 
+check_encryption_platform
+# 
+check_gpg_user_keys # from user
+# 
+create_and_execute_file_encryption_command
+
+# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT
+
+
+
+# 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+
+
+exit 0
+
+
+
+
+
+
+
+
+
+incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
+# might also be useful to validate that no parameters were given from the command line.
+
+
+#primerArray=("${!1}")
+
+#for generated_hash in "${primerArray[@]}"; do
+
+
+# tests whether parameter in of type array, if true returns 0, else returns 1
+# declare -a ## returns list of all the current array variables
+# grepping with our array works, but not 100% clear on mechanism...	
+# TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
+declare -a | grep "${incoming_parameter}" 2> /dev/null ##
+if [ $? -eq 0 ]
+then
+	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
+	incoming_array=("${incoming_parameter[@]}")
+else
+	echo "The incoming parameter was NOT of type ARRAY"
+fi
+
+echo ${incoming_parameter[@]}
+
+# test whether incoming parameter is of type string
+
+exit 0
 
 
 
@@ -267,6 +427,7 @@ esac
 	# - the desired output filename for the encrypted file (full path): [DEFAULT = SAME AS INPUT WITH .asc|.pgp]
 
 # if all good, es shows user the command it wants to execute
+# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> recipient <uid> --encrypt "$plaintext_file_fullpath"
 
 # if user give ok, es executes the command(s)
 
@@ -293,3 +454,12 @@ esac
 #
 #integration with existing system may look like:
 #- an option to run this script post-shred an pre-mutables synchronisation
+
+
+for ((index=0; index<$number_of_incoming_params; index++));
+	do	
+		position=$((index + 1))
+		echo "position is set to: $position"
+		incoming_array[$index]=${postition}
+	done
+	#for ((i=0; i<${#b64_index_numbers[@]}; i++));
