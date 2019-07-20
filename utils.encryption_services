@@ -58,7 +58,27 @@ export E_UNKNOWN_EXECUTION_MODE
 # GLOBAL VARIABLE DECLARATIONS:
 
 declare -a incoming_array=()
-incoming_string=""
+#incoming_string=""
+
+encryption_system="public_key" #default
+output_file_format="ascii" #default
+sender_uid=""
+recipient_uid=""
+declare -a recipient_uid_list=()
+
+generalised_command=""
+
+gpg_command='gpg'
+armor_option='--armor'
+output_option='--output'
+ascii_file_extention='.asc' #default
+sender_option='--local-user'
+recipient_option='--recipient'
+public_key_encrypt_option='--encrypt'
+symmetric_encrypt_option='--symmetric'
+file_path_placeholder='placeholdz'
+
+
 
 plaintext_file_fullpath=""
 plaintext_dir_fullpath=""
@@ -94,22 +114,215 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 read
 
 
+###############################################################################################
+#
+function create_generalised_command_string
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
+	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
+
+# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> --recipient <uid> --encrypt "$plaintext_file_fullpath"
+
+	generalised_command=
+
+	generalised_command+="${gpg_command} "
+
+	if [ $output_file_format == "ascii" ]
+	then
+		generalised_command+="${armor_option} "
+		generalised_command+="${output_option} ${file_path_placeholder}"
+		generalised_command+="${ascii_file_extention} "
+	fi
+
+
+	if [ $encryption_system == "public_key" ]
+	then
+		generalised_command+="${sender_option} "
+		generalised_command+="${sender_uid} "
+		for recipient in ${recipient_uid_list[@]}
+		do
+			generalised_command+="${recipient_option} ${recipient} "
+		done
+		generalised_command+="${public_key_encrypt_option} ${file_path_placeholder}"
+	fi
+
+	if [ $encryption_system == "symmetric" ]
+	then
+		generalised_command+="${symmetric_encrypt_option} ${file_path_placeholder}"
+	fi
+
+
+	echo "$generalised_command"
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
 
 
 ###############################################################################################
+
+function get_recipient_uid
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	while true
+	do
+
+		echo "Enter the user-id of a RECIPIENT || Type exit"
+		read uid
+
+		# validate recipient_uid HERE
+
+		recipient_uid="$uid"
+		echo "One recipients user-id is now set to the value: $recipient_uid" && echo
+		recipient_uid_list+=( "${recipient_uid}" )
+		
+		echo "Any more recipients (whose public keys we hold) [y/n]?"
+		read more_recipients_answer
+
+
+		case $more_recipients_answer in
+		[yY])	echo "OK, another recipient requested...." && echo
+				;;
+		[nN])	echo "OK, no more recipients needed...." && echo
+				break
+				;;
+		*)		echo "Entered the FAILSAFE BRANCH...." && echo
+				echo "Continuing with while loop, as if (y) response...." && echo 
+				;;
+		esac
+	done
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+}
+
 ###############################################################################################
+
+function get_sender_uid
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	echo "Enter the user-id of the SENDER || Type q to exit"
+	read uid
+
+	# validate sender_uid HERE
+
+	sender_uid="$uid"
+	echo "sender user-id is now set to the value: $sender_uid"
+
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+}
+
+###############################################################################################
+#
+function set_defaults
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	encryption_system="public_key" #default
+	output_file_format="ascii" #default
+	ascii_file_extention=".asc" #default
+	sender_uid=""
+	recipient_uid=""
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+###############################################################################################
+###############################################################################################
+###############################################################################################
+# 
+function get_config_mode
+{
+		echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	## reset variables:
+	mode_answer=""
+	
+	echo ">>>   Use defaults or configure parameters...?   :::"
+	echo
+	echo "Defaults mode = 2"
+	echo "Config mode = 9"
+	echo
+
+	read mode_answer
+	case $mode_answer in 
+		[2])	set_defaults ## set all the defaults by importing them from a configuration file
+								# or for now, just assigning the values
+				echo "DEFAULT VALUES FOR COMMAND GENERATION HAVE NOW BEEN SET"
+				#
+				return 2
+					;;
+		[9]) 	echo "IN FUTURE, WE'LL GET USER PROVIDED CONFIGURATION PARAMETERS."
+				echo "... BUT FOR NOW, ONLY DEFAULTS MODE IS AVAILABLE."
+				get_config_mode
+				# return 9
+					;;
+		*) 		echo "Just one of two numbers... a 1 or a 7..." && sleep 1
+				get_config_mode
+					;;
+	esac 
+
+	echo
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+########################################################################################## 
 ###############################################################################################
 # creates a command string for the gpg pubic key encryption of the plaintext file
 # shows user the command it wants to execute and await user confirmation 
 # executes the command
-function create_and_execute_file_encryption_command
+function create_generalised_file_encryption_command
 {
+# gets  and validates any unknown required parameters from the user - sender, recipient UID (based on `hostname`) \
+#  if using public key encryption - ANY DEFAULTS FOR THIS COULD BE IN A CONFIGURATION FILE FOR THIS PROGRAM
+# - cryptographic system to be used (whether public key or symmetric key crypto)
+# - the output format whether the binary default for gpg or ascii armoured
+# - the desired output filename for the encrypted file (full path): [DEFAULT = SAME AS INPUT WITH .asc|.pgp]
+
+# if all good, es shows user the command it wants to execute
+# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> recipient <uid> --encrypt "$plaintext_file_fullpath"
+
+# if user give ok, es executes the command(s)
 	service_option="NULL"
 	
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
 	echo "user has selected option: $service_option"
+
+	# get cryptographic system from user
+		# get sender user-id from user
+		# get recipient user-id(s) from user
+	# get output format from user
+	# get output filename from user
+
+	get_config_mode
+	if [ $encryption_system = "public_key" ]
+	then
+		echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
+
+		get_sender_uid
+		echo "sender user-id is now set to the value: $sender_uid"
+
+		get_recipient_uid
+		for recipient in ${recipient_uid_list[@]}
+		do
+			echo "From our array, a recipient is: ${recipient}"
+		done
+
+		create_generalised_command_string ## make this a public key specific one
+
+	else
+		create_generalised_command_string ##  make this a symmetric key specific one
+	fi
+
+
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
@@ -287,7 +500,8 @@ function get_required_service_type
 	echo ">>>   2 = gpg decryption of one or more encrypted files"
 	echo ">>>   3 = backup of keys and certs to synch'd location"
 	echo
-
+	echo ">>>   9 = quit, leave, return contol and exeet"
+	echo
 	read service_option
 
 	dummy $service_option
@@ -306,11 +520,6 @@ echo
 # #########
 
 # NEW STRATEGY:
-# ENCRYPTION SERVICES WILL NOW:
-#ESTABLISH WHAT SERVICES ARE REQUIRED
-#ESTABLISH WHAT TYPE OF ARGUMENTS IT HAS BEEN CALLED WITH AND HOW MANY
-#DO INPUT VALIDATION OF THOSE ARGUMENTS
-#... IT WILL THEN CALL THE APPROPRIATE SPECIALISED SCRIPT FOR THE JOB
 
 # 0. FIND OUT WHICH SERVICE IS REQUIRED
 
@@ -353,53 +562,38 @@ check_encryption_platform
 # 
 check_gpg_user_keys # from user
 # 
-create_and_execute_file_encryption_command
 
-# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT
+# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
 
+# sets the generalised_command global
+create_generalised_file_encryption_command
+
+for valid_path in "${incoming_array[@]}"
+do
+	echo "about to execute on file: $valid_path"
+	#encrypt_file "$valid_path" #
+
+done
 
 
 # 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
 
 
-exit 0
+exit
 
 
 
 
 
+# TODO:
+# CREATE AND PUSH FLOWCHART ALGORITHM FOR COMMAND GENERATION FUNCTIONS (AN IGNORE FILE)
+# CREATE CONFIGURATION IMPORT FUNCTIONS
+# CALL SEPARATE SCRIPT FOR EACH DISTINCT SERVICE
+# CREATE A PUBLIC-KEY BACKUP FUNCTIONALITY SCRIPT
 
+# UPDATE THE README.md TO ADD A PRE-REQUISITES SECTION
 
-
-
-incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
-# might also be useful to validate that no parameters were given from the command line.
-
-
-#primerArray=("${!1}")
-
-#for generated_hash in "${primerArray[@]}"; do
-
-
-# tests whether parameter in of type array, if true returns 0, else returns 1
-# declare -a ## returns list of all the current array variables
-# grepping with our array works, but not 100% clear on mechanism...	
-# TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
-declare -a | grep "${incoming_parameter}" 2> /dev/null ##
-if [ $? -eq 0 ]
-then
-	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
-	incoming_array=("${incoming_parameter[@]}")
-else
-	echo "The incoming parameter was NOT of type ARRAY"
-fi
-
-echo ${incoming_parameter[@]}
-
-# test whether incoming parameter is of type string
-
-exit 0
-
+# UPDATE TO USE OF OPTION SELECTION FUNCTION IF APPROPRIATE
 
 
 
@@ -454,6 +648,33 @@ exit 0
 #
 #integration with existing system may look like:
 #- an option to run this script post-shred an pre-mutables synchronisation
+
+incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
+# might also be useful to validate that no parameters were given from the command line.
+
+
+#primerArray=("${!1}")
+
+#for generated_hash in "${primerArray[@]}"; do
+
+
+# tests whether parameter in of type array, if true returns 0, else returns 1
+# declare -a ## returns list of all the current array variables
+# grepping with our array works, but not 100% clear on mechanism...	
+# TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
+declare -a | grep "${incoming_parameter}" 2> /dev/null ##
+if [ $? -eq 0 ]
+then
+	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
+	incoming_array=("${incoming_parameter[@]}")
+else
+	echo "The incoming parameter was NOT of type ARRAY"
+fi
+
+echo ${incoming_parameter[@]}
+
+# test whether incoming parameter is of type string
+
 
 
 for ((index=0; index<$number_of_incoming_params; index++));
