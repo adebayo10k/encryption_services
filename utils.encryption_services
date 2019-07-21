@@ -67,6 +67,7 @@ recipient_uid=""
 declare -a recipient_uid_list=()
 
 generalised_command=""
+file_specific_command=""
 
 gpg_command='gpg'
 armor_option='--armor'
@@ -115,8 +116,59 @@ read
 
 
 ###############################################################################################
+# the absolute path to the plaintext file is passed in
 #
-function create_generalised_command_string
+function execute_file_specific_encryption_command
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+
+	valid_path="$1"
+
+	#echo "$valid_path"
+
+	# using [,] delimiter to avoid interference with [/]
+	echo "$generalised_command" | sed 's,'$file_path_placeholder','$valid_path',' | sed 's,'$file_path_placeholder','$valid_path','
+
+	#echo "$file_specific_command"
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+###############################################################################################
+# this function called if encryption_system="symmetric"
+function create_generalised_symmetric_key_encryption_command_string
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
+
+# $ gpg --armor --output "$plaintext_file_fullpath.asc" --symmetric "$plaintext_file_fullpath"
+
+	generalised_command=
+
+	generalised_command+="${gpg_command} "
+
+	if [ $output_file_format == "ascii" ]
+	then
+		generalised_command+="${armor_option} "
+		generalised_command+="${output_option} ${file_path_placeholder}"
+		generalised_command+="${ascii_file_extention} "
+	fi
+
+	generalised_command+="${symmetric_encrypt_option} ${file_path_placeholder}"
+
+
+	echo "$generalised_command"
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+###############################################################################################
+# this function called if encryption_system="pubic_key"
+function create_generalised_pub_key_encryption_command_string
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
@@ -135,23 +187,15 @@ function create_generalised_command_string
 		generalised_command+="${ascii_file_extention} "
 	fi
 
+	generalised_command+="${sender_option} "
+	generalised_command+="${sender_uid} "
 
-	if [ $encryption_system == "public_key" ]
-	then
-		generalised_command+="${sender_option} "
-		generalised_command+="${sender_uid} "
-		for recipient in ${recipient_uid_list[@]}
-		do
-			generalised_command+="${recipient_option} ${recipient} "
-		done
-		generalised_command+="${public_key_encrypt_option} ${file_path_placeholder}"
-	fi
+	for recipient in ${recipient_uid_list[@]}
+	do
+		generalised_command+="${recipient_option} ${recipient} "
+	done
 
-	if [ $encryption_system == "symmetric" ]
-	then
-		generalised_command+="${symmetric_encrypt_option} ${file_path_placeholder}"
-	fi
-
+	generalised_command+="${public_key_encrypt_option} ${file_path_placeholder}"
 
 	echo "$generalised_command"
 
@@ -275,58 +319,6 @@ function get_config_mode
 
 ########################################################################################## 
 ###############################################################################################
-# creates a command string for the gpg pubic key encryption of the plaintext file
-# shows user the command it wants to execute and await user confirmation 
-# executes the command
-function create_generalised_file_encryption_command
-{
-# gets  and validates any unknown required parameters from the user - sender, recipient UID (based on `hostname`) \
-#  if using public key encryption - ANY DEFAULTS FOR THIS COULD BE IN A CONFIGURATION FILE FOR THIS PROGRAM
-# - cryptographic system to be used (whether public key or symmetric key crypto)
-# - the output format whether the binary default for gpg or ascii armoured
-# - the desired output filename for the encrypted file (full path): [DEFAULT = SAME AS INPUT WITH .asc|.pgp]
-
-# if all good, es shows user the command it wants to execute
-# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> recipient <uid> --encrypt "$plaintext_file_fullpath"
-
-# if user give ok, es executes the command(s)
-	service_option="NULL"
-	
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
-
-	echo "user has selected option: $service_option"
-
-	# get cryptographic system from user
-		# get sender user-id from user
-		# get recipient user-id(s) from user
-	# get output format from user
-	# get output filename from user
-
-	get_config_mode
-	if [ $encryption_system = "public_key" ]
-	then
-		echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
-
-		get_sender_uid
-		echo "sender user-id is now set to the value: $sender_uid"
-
-		get_recipient_uid
-		for recipient in ${recipient_uid_list[@]}
-		do
-			echo "From our array, a recipient is: ${recipient}"
-		done
-
-		create_generalised_command_string ## make this a public key specific one
-
-	else
-		create_generalised_command_string ##  make this a symmetric key specific one
-	fi
-
-
-
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
-
-}
 ###############################################################################################
 # list the keys available on the system
 # get the users' gpg user-id 
@@ -566,12 +558,56 @@ check_gpg_user_keys # from user
 # 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
 
 # sets the generalised_command global
-create_generalised_file_encryption_command
+#create_generalised_file_encryption_command
+
+get_config_mode
+
+if [ $encryption_system = "public_key" ]
+then
+	echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
+
+	get_sender_uid
+	echo "sender user-id is now set to the value: $sender_uid"
+
+	get_recipient_uid
+	for recipient in ${recipient_uid_list[@]}
+	do
+		echo "From our array, a recipient is: ${recipient}"
+	done
+
+	create_generalised_pub_key_encryption_command_string ## make this a public key specific one
+
+else # encryption_system must be symmetric [make this into an elseif]
+	create_generalised_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
+fi
 
 for valid_path in "${incoming_array[@]}"
 do
 	echo "about to execute on file: $valid_path"
-	#encrypt_file "$valid_path" #
+	execute_file_specific_encryption_command "$valid_path" #
+
+done
+
+
+# 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+
+
+exit
+
+
+
+
+
+	create_generalised_pub_key_encryption_command_string ## make this a public key specific one
+
+else
+	create_generalised_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
+fi
+
+for valid_path in "${incoming_array[@]}"
+do
+	echo "about to execute on file: $valid_path"
+	#execute_file_specific_encryption_command "$valid_path" #
 
 done
 
