@@ -60,24 +60,27 @@ export E_UNKNOWN_EXECUTION_MODE
 declare -a incoming_array=()
 #incoming_string=""
 
-encryption_system="public_key" #default
-output_file_format="ascii" #default
+encryption_system= # public_key | symmetric_key
+output_file_format= # ascii | binary
 sender_uid=""
 recipient_uid=""
 declare -a recipient_uid_list=()
 
-generalised_command=""
+generic_command=""
 file_specific_command=""
 
 gpg_command='gpg'
 armor_option='--armor'
 output_option='--output'
-ascii_file_extention='.asc' #default
+#ascii_file_extension='.asc' #default
+#binary_file_extension='.gpg'
+output_file_extension= # .asc | .gpg
 sender_option='--local-user'
 recipient_option='--recipient'
-public_key_encrypt_option='--encrypt'
-symmetric_encrypt_option='--symmetric'
-file_path_placeholder='placeholdz'
+#public_key_encrypt_option='--encrypt'
+#symmetric_encrypt_option='--symmetric'
+encryption_system_option= # --encrypt | --symmetric
+file_path_placeholder='<filepath_placeholder>'
 
 
 
@@ -114,6 +117,80 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 
 read
 
+###############################################################################################
+# need to test for read access to file 
+# need to test for encrypted file type
+# 
+function verify_file_encryption_results
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	valid_path="$1"
+
+
+	result=$(file "${valid_path}$output_file_extension" | grep 'PGP') # &2>/dev/null)
+
+	if [ $? -eq 0 ] && [ "$encryption_system" == "public_key" ]
+	#if [ $result -eq 0 ]
+	then
+		echo "PUBLIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
+		echo "${valid_path}$output_file_extension"
+	elif [ $? -eq 0 ] && [ "$encryption_system" == "symmetric_key" ]
+	then
+		echo "SYMMETRIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
+		echo "${valid_path}$output_file_extension"
+	else
+		return 1 ## unexpected file type
+	fi
+
+
+
+	#if [ "$encryption_system" == "public_key" ]
+	#then
+	#	result=$(file "${valid_path}$output_file_extension" | grep 'PGP') # &2>/dev/null)
+	#	if [ $? -eq 0 ]
+	#	#if [ $result -eq 0 ]
+	#	then
+	#		echo "PUBLIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
+	#		echo "${valid_path}$output_file_extension"
+	#	else
+	#		return 1 ## unexpected file type
+	#	fi
+#
+#
+	#elif [ encryption_system == "symmetric_key" ]
+	#then
+	#	result=$(file "${valid_path}$output_file_extension" | grep 'PGP') # &2>/dev/null
+	#	if [ $? -eq 0 ]
+	#	then
+	#		echo "SYMMETRIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
+	#		echo "${valid_path}$output_file_extension"
+	#	else
+	#		return 1 ## unexpected file type
+	#	fi
+#
+#
+	#else
+	#	echo "FAILSAFE BRANCH ENTERED UNEXPECTEDLY"
+	#	return $E_UNEXPECTED_BRANCH_ENTERED
+	#fi
+	
+	# test for expected file type (regular) and read permission
+	if [ -f "${valid_path}$output_file_extension" ]  && [ -r "${valid_path}$output_file_extension" ]
+	then
+		# plaintext file found and accessible
+		echo "Plaintext file found to be readable" && echo
+	else
+		# -> exit due to failure of any of the above tests:
+		echo "Returning from function ${FUNCNAME[0]} in script $(basename $0)"
+		return $E_REQUIRED_FILE_NOT_FOUND
+	fi
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	return 0
+}
 
 ###############################################################################################
 # the absolute path to the plaintext file is passed in
@@ -122,15 +199,21 @@ function execute_file_specific_encryption_command
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-
 	valid_path="$1"
 
-	#echo "$valid_path"
-
 	# using [,] delimiter to avoid interference with [/]
-	echo "$generalised_command" | sed 's,'$file_path_placeholder','$valid_path',' | sed 's,'$file_path_placeholder','$valid_path','
+	file_specific_command=$(echo "$generic_command" | sed 's,'$file_path_placeholder','$valid_path',' | sed 's,'$file_path_placeholder','$valid_path',')
 
-	#echo "$file_specific_command"
+	echo "$file_specific_command"
+
+	# get user confirmation before executing file_specific_command
+	# [call a function for this, which can abort the whole encryption process if there's a problem at this point]
+	echo "command look ok?"
+	read	# just pause here for now
+
+	# execute file_specific_command if return code from user confirmation = 0
+	# execute [here] using bash -c ...
+	bash -c "$file_specific_command"
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
@@ -139,7 +222,7 @@ function execute_file_specific_encryption_command
 
 ###############################################################################################
 # this function called if encryption_system="symmetric"
-function create_generalised_symmetric_key_encryption_command_string
+function create_generic_symmetric_key_encryption_command_string
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
@@ -147,28 +230,28 @@ function create_generalised_symmetric_key_encryption_command_string
 
 # $ gpg --armor --output "$plaintext_file_fullpath.asc" --symmetric "$plaintext_file_fullpath"
 
-	generalised_command=
+	generic_command=
 
-	generalised_command+="${gpg_command} "
+	generic_command+="${gpg_command} "
 
 	if [ $output_file_format == "ascii" ]
 	then
-		generalised_command+="${armor_option} "
-		generalised_command+="${output_option} ${file_path_placeholder}"
-		generalised_command+="${ascii_file_extention} "
+		generic_command+="${armor_option} "
+		generic_command+="${output_option} ${file_path_placeholder}"
+		generic_command+="${output_file_extension} "
 	fi
 
-	generalised_command+="${symmetric_encrypt_option} ${file_path_placeholder}"
+	generic_command+="${encryption_system_option} ${file_path_placeholder}"
 
 
-	echo "$generalised_command"
+	echo "$generic_command"
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
 }
 ###############################################################################################
-# this function called if encryption_system="pubic_key"
-function create_generalised_pub_key_encryption_command_string
+# this function called if encryption_system="public_key"
+function create_generic_pub_key_encryption_command_string
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
@@ -176,28 +259,28 @@ function create_generalised_pub_key_encryption_command_string
 
 # $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> --recipient <uid> --encrypt "$plaintext_file_fullpath"
 
-	generalised_command=
+	generic_command=
 
-	generalised_command+="${gpg_command} "
+	generic_command+="${gpg_command} "
 
 	if [ $output_file_format == "ascii" ]
 	then
-		generalised_command+="${armor_option} "
-		generalised_command+="${output_option} ${file_path_placeholder}"
-		generalised_command+="${ascii_file_extention} "
+		generic_command+="${armor_option} "
+		generic_command+="${output_option} ${file_path_placeholder}"
+		generic_command+="${output_file_extension} "
 	fi
 
-	generalised_command+="${sender_option} "
-	generalised_command+="${sender_uid} "
+	generic_command+="${sender_option} "
+	generic_command+="${sender_uid} "
 
 	for recipient in ${recipient_uid_list[@]}
 	do
-		generalised_command+="${recipient_option} ${recipient} "
+		generic_command+="${recipient_option} ${recipient} "
 	done
 
-	generalised_command+="${public_key_encrypt_option} ${file_path_placeholder}"
+	generic_command+="${encryption_system_option} ${file_path_placeholder}"
 
-	echo "$generalised_command"
+	echo "$generic_command"
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
@@ -269,9 +352,31 @@ function set_defaults
 
 	encryption_system="public_key" #default
 	output_file_format="ascii" #default
-	ascii_file_extention=".asc" #default
-	sender_uid=""
-	recipient_uid=""
+
+	if [ $encryption_system == "public_key" ]
+	then
+		encryption_system_option='--encrypt'
+	elif [ $encryption_system == "symmetric_key" ]
+	then
+		encryption_system_option='--symmetric'
+	else
+		echo "FAILSAFE BRANCH ENTERED"
+		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
+	fi
+
+	if [ $output_file_format == "ascii" ]
+	then
+		output_file_extension=".asc" #default
+	elif [ $output_file_format == "binary" ]
+	then
+		output_file_extension=".gpg"
+	else
+		echo "FAILSAFE BRANCH ENTERED"
+		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
+	fi	
+
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
@@ -420,8 +525,6 @@ function test_file_path_valid_form
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 }
 
-
-
 ###############################################################################################
 # need to test for read access to file 
 # need to test for access to the file holding directory
@@ -438,7 +541,7 @@ function test_file_path_access
 	echo "test_dir_fullpath is set to: $test_dir_fullpath"
 
 
-
+		# && if #2 is set
 	if [ -d "$test_dir_fullpath" ] && cd "$test_dir_fullpath" 2>/dev/null
 	then
 		# directory file found and accessible
@@ -557,8 +660,8 @@ check_gpg_user_keys # from user
 
 # 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
 
-# sets the generalised_command global
-#create_generalised_file_encryption_command
+# sets the generic_command global
+#create a generic file encryption command string for either public key or symmetric key encryption:
 
 get_config_mode
 
@@ -575,17 +678,40 @@ then
 		echo "From our array, a recipient is: ${recipient}"
 	done
 
-	create_generalised_pub_key_encryption_command_string ## make this a public key specific one
+	create_generic_pub_key_encryption_command_string ## make this a public key specific one
 
-else # encryption_system must be symmetric [make this into an elseif]
-	create_generalised_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
+else # encryption_system must be symmetric [make this into an elif]
+	create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
 fi
 
+#create, then execute each file specific encryption command, then shred plaintext file:
 for valid_path in "${incoming_array[@]}"
 do
 	echo "about to execute on file: $valid_path"
 	execute_file_specific_encryption_command "$valid_path" #
 
+	# check that expected output file now exists, is accessible and has expected encypted file properties
+	verify_file_encryption_results "${valid_path}"
+	if [ $? -ne 0 ]
+	then
+		echo "FAILURE REPORT...ON STATE..."
+		exit 1
+	else
+		# shred the plaintext file and verify its' removal
+		echo "Ok to shred this file?..." && echo
+		echo "$valid_path"
+
+		read
+
+
+		echo
+		
+	fi
+	
+	
+
+
+
 done
 
 
@@ -598,24 +724,24 @@ exit
 
 
 
-	create_generalised_pub_key_encryption_command_string ## make this a public key specific one
-
-else
-	create_generalised_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
-fi
-
-for valid_path in "${incoming_array[@]}"
-do
-	echo "about to execute on file: $valid_path"
-	#execute_file_specific_encryption_command "$valid_path" #
-
-done
-
-
-# 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
-
-
-exit
+#	create_generic_pub_key_encryption_command_string ## make this a public key specific one
+#
+#else
+#	create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
+#fi
+#
+#for valid_path in "${incoming_array[@]}"
+#do
+#	echo "about to execute on file: $valid_path"
+#	#execute_file_specific_encryption_command "$valid_path" #
+#
+#done
+#
+#
+## 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+#
+#
+#exit
 
 
 
@@ -685,7 +811,7 @@ exit
 #integration with existing system may look like:
 #- an option to run this script post-shred an pre-mutables synchronisation
 
-incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
+#incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
 # might also be useful to validate that no parameters were given from the command line.
 
 
@@ -698,25 +824,25 @@ incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from 
 # declare -a ## returns list of all the current array variables
 # grepping with our array works, but not 100% clear on mechanism...	
 # TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
-declare -a | grep "${incoming_parameter}" 2> /dev/null ##
-if [ $? -eq 0 ]
-then
-	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
-	incoming_array=("${incoming_parameter[@]}")
-else
-	echo "The incoming parameter was NOT of type ARRAY"
-fi
-
-echo ${incoming_parameter[@]}
-
-# test whether incoming parameter is of type string
-
-
-
-for ((index=0; index<$number_of_incoming_params; index++));
-	do	
-		position=$((index + 1))
-		echo "position is set to: $position"
-		incoming_array[$index]=${postition}
-	done
+#declare -a | grep "${incoming_parameter}" 2> /dev/null ##
+#if [ $? -eq 0 ]
+#then
+#	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
+#	incoming_array=("${incoming_parameter[@]}")
+#else
+#	echo "The incoming parameter was NOT of type ARRAY"
+#fi
+#
+#echo ${incoming_parameter[@]}
+#
+## test whether incoming parameter is of type string
+#
+#
+#
+#for ((index=0; index<$number_of_incoming_params; index++));
+#	do	
+#		position=$((index + 1))
+#		echo "position is set to: $position"
+#		incoming_array[$index]=${postition}
+#	done
 	#for ((i=0; i<${#b64_index_numbers[@]}; i++));
