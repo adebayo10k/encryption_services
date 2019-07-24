@@ -118,8 +118,64 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 read
 
 ###############################################################################################
-# need to test for read access to file 
-# need to test for encrypted file type
+# test for removal of plaintext file(s)
+# 
+function verify_file_shred_results
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+
+	# :
+	for valid_path in "${incoming_array[@]}"
+	do
+		if [ -f "${valid_path}" ]
+		then
+			# failure of shred
+			echo "FAILED TO CONFIRM THE SHRED REMOVAL OF FILE:"
+			echo "${valid_path}" && echo
+		else
+			# success of shred
+			echo "SUCCESSFUL SHRED REMOVAL OF FILE:"
+			echo "${valid_path}" && echo
+
+		fi
+	done
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+###############################################################################################
+# standard procedure once encrypted versions exits: remove the plaintext versions!
+function shred_plaintext_files
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+
+	echo "Ok to shred the following plaintext file(s)?..." && echo
+
+	# list the encrypted files:
+	for valid_path in "${incoming_array[@]}"
+	do
+		echo "${valid_path}"	
+	done
+
+	# for now, confirmation by pressing enter
+	read
+
+	# shred the plaintext file and verify its' removal
+	for valid_path in "${incoming_array[@]}"
+	do
+		sudo shred -n 1 -ufv "${valid_path}"	
+	done
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+}
+
+###############################################################################################
+# test for encrypted file type
+# test for read access to file 
 # 
 function verify_file_encryption_results
 {
@@ -143,43 +199,12 @@ function verify_file_encryption_results
 		return 1 ## unexpected file type
 	fi
 
-
-
-	#if [ "$encryption_system" == "public_key" ]
-	#then
-	#	result=$(file "${valid_path}$output_file_extension" | grep 'PGP') # &2>/dev/null)
-	#	if [ $? -eq 0 ]
-	#	#if [ $result -eq 0 ]
-	#	then
-	#		echo "PUBLIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
-	#		echo "${valid_path}$output_file_extension"
-	#	else
-	#		return 1 ## unexpected file type
-	#	fi
-#
-#
-	#elif [ encryption_system == "symmetric_key" ]
-	#then
-	#	result=$(file "${valid_path}$output_file_extension" | grep 'PGP') # &2>/dev/null
-	#	if [ $? -eq 0 ]
-	#	then
-	#		echo "SYMMETRIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
-	#		echo "${valid_path}$output_file_extension"
-	#	else
-	#		return 1 ## unexpected file type
-	#	fi
-#
-#
-	#else
-	#	echo "FAILSAFE BRANCH ENTERED UNEXPECTEDLY"
-	#	return $E_UNEXPECTED_BRANCH_ENTERED
-	#fi
 	
-	# test for expected file type (regular) and read permission
+	# test encrypted file for expected file type (regular) and read permission
 	if [ -f "${valid_path}$output_file_extension" ]  && [ -r "${valid_path}$output_file_extension" ]
 	then
-		# plaintext file found and accessible
-		echo "Plaintext file found to be readable" && echo
+		# encrypted file found and accessible
+		echo "Encrypted file found to be readable" && echo
 	else
 		# -> exit due to failure of any of the above tests:
 		echo "Returning from function ${FUNCNAME[0]} in script $(basename $0)"
@@ -201,14 +226,14 @@ function execute_file_specific_encryption_command
 
 	valid_path="$1"
 
-	# using [,] delimiter to avoid interference with [/]
+	# using [,] delimiter to avoid interference with file path [/]
 	file_specific_command=$(echo "$generic_command" | sed 's,'$file_path_placeholder','$valid_path',' | sed 's,'$file_path_placeholder','$valid_path',')
 
 	echo "$file_specific_command"
 
 	# get user confirmation before executing file_specific_command
 	# [call a function for this, which can abort the whole encryption process if there's a problem at this point]
-	echo "command look ok?"
+	echo && echo "Command look OK?"
 	read	# just pause here for now
 
 	# execute file_specific_command if return code from user confirmation = 0
@@ -326,7 +351,7 @@ function get_recipient_uid
 }
 
 ###############################################################################################
-
+# 
 function get_sender_uid
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
@@ -334,7 +359,8 @@ function get_sender_uid
 	echo "Enter the user-id of the SENDER || Type q to exit"
 	read uid
 
-	# validate sender_uid HERE
+	# TODO: validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
+	# FAIL AND REPEAT REQUEST IF THIS IS NOT THE CASE
 
 	sender_uid="$uid"
 	echo "sender user-id is now set to the value: $sender_uid"
@@ -696,54 +722,21 @@ do
 	then
 		echo "FAILURE REPORT...ON STATE..."
 		exit 1
-	else
-		# shred the plaintext file and verify its' removal
-		echo "Ok to shred this file?..." && echo
-		echo "$valid_path"
-
-		read
-
-
-		echo
-		
-	fi
-	
-	
-
-
-
+	fi	
 done
 
+# 6. SHRED THE PLAINTEXT FILES NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
 
-# 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+shred_plaintext_files
 
-
-exit
-
-
+verify_file_shred_results
 
 
 
-#	create_generic_pub_key_encryption_command_string ## make this a public key specific one
-#
-#else
-#	create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
-#fi
-#
-#for valid_path in "${incoming_array[@]}"
-#do
-#	echo "about to execute on file: $valid_path"
-#	#execute_file_specific_encryption_command "$valid_path" #
-#
-#done
-#
-#
-## 6. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
-#
-#
-#exit
+# 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
 
 
+echo "encryption_services exit code: $?" && exit 
 
 
 
@@ -751,17 +744,16 @@ exit
 # CREATE AND PUSH FLOWCHART ALGORITHM FOR COMMAND GENERATION FUNCTIONS (AN IGNORE FILE)
 # CREATE CONFIGURATION IMPORT FUNCTIONS
 # CALL SEPARATE SCRIPT FOR EACH DISTINCT SERVICE
-# CREATE A PUBLIC-KEY BACKUP FUNCTIONALITY SCRIPT
+# CREATE THE PUBLIC-KEY BACKUP FUNCTIONALITY SCRIPT
 
 # UPDATE THE README.md TO ADD A PRE-REQUISITES SECTION
 
 # UPDATE TO USE OF OPTION SELECTION FUNCTION IF APPROPRIATE
 
 
+# .. don't forget to unset when returning to calling program
 
-# if ... don't forget to unset when returning to calling program),
-
-
+###############################################################################################
 
 ## USE CASE - CALLED BY audit_list_maker TO GPG ENCRYPT A SINGLE FILE
 
@@ -791,7 +783,7 @@ exit
 
 # es reports success to user and returns control
 
-
+###############################################################################################
 
 
 #ssh hostname ## this command likely to be read in from file
@@ -800,6 +792,9 @@ exit
 #
 # hostname will determine which ssh code runs
 #
+
+###############################################################################################
+
 # these files need to be backed up and encrypted:
 #public keyrings such as:
 #~/.gnupg/pubring.gpg 
@@ -811,14 +806,7 @@ exit
 #integration with existing system may look like:
 #- an option to run this script post-shred an pre-mutables synchronisation
 
-#incoming_parameter=${1:-"not_yet_set"} ## whether this script run directly from command-line or called by another script
-# might also be useful to validate that no parameters were given from the command line.
-
-
-#primerArray=("${!1}")
-
-#for generated_hash in "${primerArray[@]}"; do
-
+###############################################################################################
 
 # tests whether parameter in of type array, if true returns 0, else returns 1
 # declare -a ## returns list of all the current array variables
@@ -845,4 +833,3 @@ exit
 #		echo "position is set to: $position"
 #		incoming_array[$index]=${postition}
 #	done
-	#for ((i=0; i<${#b64_index_numbers[@]}; i++));
