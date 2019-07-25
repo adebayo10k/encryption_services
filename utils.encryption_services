@@ -5,7 +5,7 @@
 #: Version		:1.0
 #: Description	:script provides encryption services both to other scripts  
 #: Description	:and to the command-line user.  
-#: Description	:to encrypt on or more files.
+#: Description	:to encrypt one or more files.
 #: Description	:to backup configurations, revocation certs and keys in appropriate ways
 #: Description	:integrate with existing system of backup, synchronisation and encryption 
 #: Description	:ssh into remotes to backup their keys too
@@ -725,12 +725,17 @@ do
 	fi	
 done
 
-# 6. SHRED THE PLAINTEXT FILES NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
+# 6. SHRED THE PLAINTEXT FILES, NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
 
-shred_plaintext_files
-
-verify_file_shred_results
-
+# first checking that the shred program is installed
+which shred #&> /dev/null
+if [ $? -eq 0 ]
+then
+	shred_plaintext_files
+	verify_file_shred_results		
+else
+	echo "FAILED TO FIND THE SHRED PROGRAM ON THIS SYSTEM, SO SKIPPED SHREDDING OF ORIGINAL PLAINTEXT FILES"
+fi	
 
 
 # 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
