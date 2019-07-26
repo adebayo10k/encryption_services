@@ -57,6 +57,8 @@ export E_UNKNOWN_EXECUTION_MODE
 
 # GLOBAL VARIABLE DECLARATIONS:
 
+service_index= # service number of selected service
+
 declare -a incoming_array=()
 #incoming_string=""
 
@@ -450,6 +452,69 @@ function get_config_mode
 
 ########################################################################################## 
 ###############################################################################################
+# CODE TO ENCRYPT A SET OF FILES:
+###############################################################################################
+
+function gpg_file_encryption_service
+{
+
+	# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
+
+	# sets the generic_command global
+	#create a generic file encryption command string for either public key or symmetric key encryption:
+
+	get_config_mode
+
+	if [ $encryption_system = "public_key" ]
+	then
+		echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
+
+		get_sender_uid
+		echo "sender user-id is now set to the value: $sender_uid"
+
+		get_recipient_uid
+		for recipient in ${recipient_uid_list[@]}
+		do
+			echo "From our array, a recipient is: ${recipient}"
+		done
+
+		create_generic_pub_key_encryption_command_string ## make this a public key specific one
+
+	else # encryption_system must be symmetric [make this into an elif]
+		create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
+	fi
+
+	#create, then execute each file specific encryption command, then shred plaintext file:
+	for valid_path in "${incoming_array[@]}"
+	do
+		echo "about to execute on file: $valid_path"
+		execute_file_specific_encryption_command "$valid_path" #
+
+		# check that expected output file now exists, is accessible and has expected encypted file properties
+		verify_file_encryption_results "${valid_path}"
+		if [ $? -ne 0 ]
+		then
+			echo "FAILURE REPORT...ON STATE..."
+			exit 1
+		fi	
+	done
+
+	# 6. SHRED THE PLAINTEXT FILES, NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
+
+	# first checking that the shred program is installed
+	which shred #&> /dev/null
+	if [ $? -eq 0 ]
+	then
+		shred_plaintext_files
+		verify_file_shred_results		
+	else
+		echo "FAILED TO FIND THE SHRED PROGRAM ON THIS SYSTEM, SO SKIPPED SHREDDING OF ORIGINAL PLAINTEXT FILES"
+	fi	
+
+}
+
+
+###############################################################################################
 ###############################################################################################
 # list the keys available on the system
 # get the users' gpg user-id 
@@ -596,13 +661,56 @@ function test_file_path_access
 ###############################################################################################
 #########################################################################################################
 ## SET GLOBAL VARIABLES REGARDING SPECIFIC SERVICE
-function dummy
+function call_service
 {
 	service_option="$1"
 	
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
 	echo "user has selected option: $service_option"
+
+case $service_option in
+	1)		# gpg file encryption service
+			service_index=1
+			echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
+			# do nothing for now, just pass through this case block and return to next command
+			gpg_file_encryption_service			
+			;;
+
+	2)		# gpg decryption ... for now, return to get_required_service_type and go loopy
+			service_index=2
+			echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
+			get_required_service_type
+			;;
+
+	3)		# gpg keys and certificates backup service
+			service_index=3
+			echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE"
+			;;
+
+	4)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy
+			service_index=4
+			echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
+			get_required_service_type
+			;;
+
+	9)		echo "NO CURRENT USE - JUST ISSUE THE COMMAND IN A SHELL!"
+			service_index=9
+			get_required_service_type
+			;;
+
+[Qq])		echo
+			echo "Goodbye!" && sleep 1
+			exit 0
+			;;
+
+	*) 		echo "Just a simple 1-4 will do..." && sleep 2
+			service_index=0
+		 	get_required_service_type
+		 	;;
+esac 
+
+
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
@@ -615,17 +723,21 @@ function get_required_service_type
 	echo
 	echo ">>>   Which encryption type services do you require...?   :::"
 	echo
-	### 
-	echo ">>>   1 = gpg encryption of one or more plaintext files"
-	## 
-	echo ">>>   2 = gpg decryption of one or more encrypted files"
-	echo ">>>   3 = backup of keys and certs to synch'd location"
+	echo 
+	echo ">>>   1 = GPG encryption of one or more plaintext files"
+	echo 
+	echo ">>>   2 = GPG decryption of one or more encrypted files"
 	echo
-	echo ">>>   9 = quit, leave, return contol and exeet"
+	echo ">>>   3 = backup of GPG keys and certs to synch'd location"
 	echo
+	echo ">>>   4 = GPG encryption and signing one or more documents"
+	echo
+	echo ">>>   [Q/q] = quit, leave, return contol and exeet"
+	echo
+
 	read service_option
 
-	dummy $service_option
+	call_service $service_option
 
 }
 
@@ -638,20 +750,16 @@ echo "STARTING THE 'MAIN SECTION'"
 echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 echo
 
-# #########
-
-# NEW STRATEGY:
-
-# 0. FIND OUT WHICH SERVICE IS REQUIRED
-
-get_required_service_type
+###############################################################################################
+# CODE THAT ALWAYS RUNS WHEN SCRIPT IS CALLED:
+###############################################################################################
 
 # 1. DETERMINE HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
 number_of_incoming_params=$#
 
 echo "Number of arguments passed in = $number_of_incoming_params"
 
-# 2. DETERMINE DATA TYPE | DO A FILE PATH VALIDATION TEST | 
+# 2. VERIFY NUMBER OF PARAMS (MUST BE FILE PATHS) && 3. TEST THAT INCOMING STRINGS ARE ALL VALID AND ACCESSIBLE FILE PATHS:
 
 # put the incoming data into an array 
 if [ $number_of_incoming_params -gt 0 ]
@@ -663,79 +771,37 @@ then
 	do
 		echo "$incoming_string"
 	done
+
+	for incoming_string in "${incoming_array[@]}"
+	do
+		echo "incoming string is now: $incoming_string"
+		test_file_path_valid_form "$incoming_string"
+		test_file_path_access "$plaintext_file_fullpath" "$plaintext_dir_fullpath"
+
+	done
+
 fi
 
-
-# 3. TEST THAT INCOMING STRINGS ARE ALL VALID AND ACCESSIBLE FILE PATHS
-
-for incoming_string in "${incoming_array[@]}"
-do
-	echo "incoming string is now: $incoming_string"
-	test_file_path_valid_form "$incoming_string"
-	test_file_path_access "$plaintext_file_fullpath" "$plaintext_dir_fullpath"
-
-done
-
-# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT
-
+# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 # 
 check_encryption_platform
 # 
 check_gpg_user_keys # from user
 # 
 
-# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
+# 0. FIND OUT WHICH SERVICE IS REQUIRED
 
-# sets the generic_command global
-#create a generic file encryption command string for either public key or symmetric key encryption:
+get_required_service_type
 
-get_config_mode
+###############################################################################################
 
-if [ $encryption_system = "public_key" ]
-then
-	echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
 
-	get_sender_uid
-	echo "sender user-id is now set to the value: $sender_uid"
 
-	get_recipient_uid
-	for recipient in ${recipient_uid_list[@]}
-	do
-		echo "From our array, a recipient is: ${recipient}"
-	done
 
-	create_generic_pub_key_encryption_command_string ## make this a public key specific one
 
-else # encryption_system must be symmetric [make this into an elif]
-	create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
-fi
 
-#create, then execute each file specific encryption command, then shred plaintext file:
-for valid_path in "${incoming_array[@]}"
-do
-	echo "about to execute on file: $valid_path"
-	execute_file_specific_encryption_command "$valid_path" #
 
-	# check that expected output file now exists, is accessible and has expected encypted file properties
-	verify_file_encryption_results "${valid_path}"
-	if [ $? -ne 0 ]
-	then
-		echo "FAILURE REPORT...ON STATE..."
-		exit 1
-	fi	
-done
-
-# 6. SHRED THE PLAINTEXT FILES, NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
-
-# first checking that the shred program is installed
-which shred #&> /dev/null
-if [ $? -eq 0 ]
-then
-	shred_plaintext_files
-	verify_file_shred_results		
-else
-	echo "FAILED TO FIND THE SHRED PROGRAM ON THIS SYSTEM, SO SKIPPED SHREDDING OF ORIGINAL PLAINTEXT FILES"
-fi	
+###############################################################################################
 
 
 # 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
