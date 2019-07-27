@@ -119,6 +119,28 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 
 read
 
+
+
+
+
+###############################################################################################
+# 
+# 
+function generate_gpg_key_pair
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+
+	# :
+	gpg --full-gen-key	
+
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+###############################################################################################
 ###############################################################################################
 # test for removal of plaintext file(s)
 # 
@@ -450,6 +472,42 @@ function get_config_mode
 
 }
 
+###############################################################################################
+# list the keys available on the system
+# get the users' gpg user-id 
+# test that valid, ultimate trust fingerprint exists for that user-id
+function check_gpg_user_keys
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	userid=""
+
+	# issue gpg commands to list keys for now... just as a prompt of user-id details
+	bash -c "gpg --list-key"
+	bash -c "gpg --list-secret-keys"
+
+	# get the users' gpg UID from terminal
+	echo "Enter your user-id (example: order@entropism.org)"
+
+	read userid
+
+	# now check for a key-pair fingerprint. TODO: if not found, user should have the opportunity to try again
+	# TODO: THIS IS NOT THE RIGHT TEST, FIND SOMETHING BETTER LATER
+	bash -c "gpg --fingerprint "$userid" 2>/dev/null" # suppress stderr (but not stdout for now)
+	if [ $? -eq 0 ]
+	then
+		echo "KEY-PAIR FINGERPRINT IDENTIFIED FOR USER-ID OK"
+	else
+		echo "FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID"
+		# -> exit due to failure of any of the above tests:
+		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+	fi
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
 ########################################################################################## 
 ###############################################################################################
 # CODE TO ENCRYPT A SET OF FILES:
@@ -462,6 +520,9 @@ function gpg_file_encryption_service
 
 	# sets the generic_command global
 	#create a generic file encryption command string for either public key or symmetric key encryption:
+
+	# 
+	check_gpg_user_keys # from user
 
 	get_config_mode
 
@@ -515,44 +576,6 @@ function gpg_file_encryption_service
 
 
 ###############################################################################################
-###############################################################################################
-# list the keys available on the system
-# get the users' gpg user-id 
-# test that valid, ultimate trust fingerprint exists for that user-id
-function check_gpg_user_keys
-{
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
-
-	userid=""
-
-	# issue gpg commands to list keys for now... just as a prompt of user-id details
-	bash -c "gpg --list-key"
-	bash -c "gpg --list-secret-keys"
-
-	# get the users' gpg UID from terminal
-	echo "Please enter your user-id (example: smoothcoder@sharkpool.org)"
-
-	read userid
-
-	# now check for a key-pair fingerprint. TODO: if not found, user should have the opportunity to try again
-	# TODO: THIS IS NOT THE RIGHT TEST, FIND SOMETHING BETTER LATER
-	bash -c "gpg --fingerprint "$userid" 2>/dev/null" # suppress stderr (but not stdout for now)
-	if [ $? -eq 0 ]
-	then
-		echo "KEY-PAIR FINGERPRINT IDENTIFIED FOR USER-ID OK"
-	else
-		echo "FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID"
-		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
-	fi
-
-
-
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
-
-}
-
 ###############################################################################################
 
 # check that the OpenPGP tool gpg is installed on the system
@@ -683,13 +706,25 @@ case $service_option in
 			get_required_service_type
 			;;
 
-	3)		# gpg keys and certificates backup service
+	3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates
+			# backup public keyring
+			# generate revocation certificate
+			# encrypt and backup revocation certificate
+			# backup exported exported public key
 			service_index=3
-			echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE"
+			echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
+			generate_gpg_key_pair
+			
 			;;
 
-	4)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy
+	4)		# import GPG public key and backup keyring
 			service_index=4
+			echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
+			get_required_service_type
+			;;
+
+	5)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy
+			service_index=5
 			echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
 			get_required_service_type
 			;;
@@ -704,7 +739,7 @@ case $service_option in
 			exit 0
 			;;
 
-	*) 		echo "Just a simple 1-4 will do..." && sleep 2
+	*) 		echo "Just a simple 1-5 will do..." && sleep 2
 			service_index=0
 		 	get_required_service_type
 		 	;;
@@ -728,11 +763,13 @@ function get_required_service_type
 	echo 
 	echo ">>>   2 = GPG decryption of one or more encrypted files"
 	echo
-	echo ">>>   3 = backup of GPG keys and certs to synch'd location"
+	echo ">>>   3 = generate GPG public key encryption key-pair and manage keys and certificates"
 	echo
-	echo ">>>   4 = GPG encryption and signing one or more documents"
+	echo ">>>   4 = import GPG public key and backup keyring"
 	echo
-	echo ">>>   [Q/q] = quit, leave, return contol and exeet"
+	echo ">>>   5 = GPG encryption and signing one or more documents"
+	echo
+	echo ">>>   [Q/q] = quit, leave, return contRol and exeet"
 	echo
 
 	read service_option
@@ -785,9 +822,10 @@ fi
 # 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 # 
 check_encryption_platform
-# 
-check_gpg_user_keys # from user
-# 
+
+# issue gpg commands to list keys for now... just to see what's there
+bash -c "gpg --list-key"
+bash -c "gpg --list-secret-keys"
 
 # 0. FIND OUT WHICH SERVICE IS REQUIRED
 
