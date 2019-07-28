@@ -57,6 +57,8 @@ export E_UNKNOWN_EXECUTION_MODE
 
 # GLOBAL VARIABLE DECLARATIONS:
 
+config_file_fullpath= # a full path to a file
+
 service_index= # service number of selected service
 
 declare -a incoming_array=()
@@ -84,12 +86,12 @@ recipient_option='--recipient'
 encryption_system_option= # --encrypt | --symmetric
 file_path_placeholder='<filepath_placeholder>'
 
-
-
 plaintext_file_fullpath=""
 plaintext_dir_fullpath=""
 abs_filepath_regex='^(/{1}[A-Za-z0-9\._-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
+
+synchronised_location=
 
 
 echo "	==================================================================="
@@ -119,10 +121,7 @@ echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
 
 read
 
-
-
-
-
+#######################################################################
 ###############################################################################################
 # 
 # 
@@ -134,6 +133,7 @@ function generate_gpg_key_pair
 	# :
 	gpg --full-gen-key	
 
+	# copy public keyring (each format) to the defined synchronised location 
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
@@ -436,7 +436,7 @@ function set_defaults
 ###############################################################################################
 ###############################################################################################
 # 
-function get_config_mode
+function get_file_encryption_config_mode
 {
 		echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
@@ -459,11 +459,11 @@ function get_config_mode
 					;;
 		[9]) 	echo "IN FUTURE, WE'LL GET USER PROVIDED CONFIGURATION PARAMETERS."
 				echo "... BUT FOR NOW, ONLY DEFAULTS MODE IS AVAILABLE."
-				get_config_mode
+				get_file_encryption_config_mode
 				# return 9
 					;;
-		*) 		echo "Just one of two numbers... a 1 or a 7..." && sleep 1
-				get_config_mode
+		*) 		echo "Just one of two numbers... a [2] or a [9]..." && sleep 1
+				get_file_encryption_config_mode
 					;;
 	esac 
 
@@ -524,7 +524,7 @@ function gpg_file_encryption_service
 	# 
 	check_gpg_user_keys # from user
 
-	get_config_mode
+	get_file_encryption_config_mode
 
 	if [ $encryption_system = "public_key" ]
 	then
@@ -606,13 +606,13 @@ function check_encryption_platform
 ###############################################################################################
 
 # firstly, we test that the parameter we got is of the correct form for an absolute file path 
-# 
+# if this test fails, there's no point doing anything further
 # 
 function test_file_path_valid_form
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-
+	test_result=
 	test_file_fullpath=$1
 	
 	echo "test_file_fullpath is set to: $test_file_fullpath"
@@ -620,23 +620,19 @@ function test_file_path_valid_form
 
 	if [[ $test_file_fullpath =~ $abs_filepath_regex ]]
 	then
-		echo "THE FORM OF THE INCOMING PARAMETER IS THEREFORE OF A VALID ABSOLUTE FILE PATH"
-		# from now on, we can talk about a plaintext file path...
-		plaintext_file_fullpath="$test_file_fullpath"
-		echo "The full path to the plaintext file is: $plaintext_file_fullpath"
-
-		## ASSUMING THE FILE IS NOT 'SOMEHOW' SITTING IN THE ROOT DIRECTORY
-		plaintext_dir_fullpath=${plaintext_file_fullpath%/*}
-		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
-		echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
+		echo "THE FORM OF THE INCOMING PARAMETER IS OF A VALID ABSOLUTE FILE PATH"
+		test_result=0
 	else
 		echo "AN INCOMING PARAMETER WAS SET, BUT WAS NOT A MATCH FOR OUR KNOWN PATH FORM REGEX "$abs_filepath_regex"" && sleep 1 && echo
-		echo "Exiting..."
-		exit $E_UNEXPECTED_ARG_VALUE
+		echo "Returning with a non-zero test result..."
+		test_result=1
+		return $E_UNEXPECTED_ARG_VALUE
 	fi 
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	return "$test_result"
 }
 
 ###############################################################################################
@@ -647,7 +643,7 @@ function test_file_path_access
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-
+	test_result=
 	test_file_fullpath=$1
 	test_dir_fullpath=$2
 
@@ -660,30 +656,37 @@ function test_file_path_access
 	then
 		# directory file found and accessible
 		echo "directory "$test_dir_fullpath" found and accessed ok" && echo
+		test_result=0
 	else
-		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_FILE_NOT_FOUND
+		# -> return due to failure of any of the above tests:
+		test_result=1
+		echo "Returning from function \"${FUNCNAME[0]}\" with test result code: $E_REQUIRED_FILE_NOT_FOUND"
+		return $E_REQUIRED_FILE_NOT_FOUND
 	fi
 
 	# test for expected file type (regular) and read permission
 	if [ -f "$test_file_fullpath" ] && [ -r "$test_file_fullpath" ]
 	then
-		# plaintext file found and accessible
-		echo "Plaintext file found to be readable" && echo
+		# test file found and accessible
+		echo "Test file found to be readable" && echo
+		test_result=0
 	else
-		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function ${FUNCNAME[0]} in script $(basename $0)"
-		exit $E_REQUIRED_FILE_NOT_FOUND
+		# -> return due to failure of any of the above tests:
+		test_result=1
+		echo "Returning from function \"${FUNCNAME[0]}\" with test result code: $E_REQUIRED_FILE_NOT_FOUND"
+		return $E_REQUIRED_FILE_NOT_FOUND
 	fi
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	return "$test_result"
 }
 
 ###############################################################################################
 #########################################################################################################
-## SET GLOBAL VARIABLES REGARDING SPECIFIC SERVICE
+## SET GLOBAL VARIABLE service_index WRT A SPECIFIC SERVICE
+# CALL THE FUNCTIONS AND SCRIPTS THAT COMBINE TO PROVIDE THE REQUESTED SERVICE
 function call_service
 {
 	service_option="$1"
@@ -693,37 +696,51 @@ function call_service
 	echo "user has selected option: $service_option"
 
 case $service_option in
-	1)		# gpg file encryption service
+	1)		# gpg file encryption service:
 			service_index=1
 			echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
-			# do nothing for now, just pass through this case block and return to next command
-			gpg_file_encryption_service			
+
+			# NOW WE MUST CHECK FOR PRE-REQUISITES:
+			# does incoming_array have one or more elements?
+			# ...
+			if [ ${#incoming_array[@]} -gt 0 ]
+			then
+				gpg_file_encryption_service
+			else
+				echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
+				exit "$E_INCORRECT_NUMBER_OF_ARGS"
+			fi
 			;;
 
-	2)		# gpg decryption ... for now, return to get_required_service_type and go loopy
+	2)		# gpg decryption ... for now, return to get_required_service_type and go loopy:
 			service_index=2
 			echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
 			get_required_service_type
 			;;
 
-	3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates
+	3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
 			# backup public keyring
 			# generate revocation certificate
 			# encrypt and backup revocation certificate
 			# backup exported exported public key
 			service_index=3
 			echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
+			
+			# NOW WE MUST CHECK FOR PRE-REQUISITES:
+			# does ...?
+			# ...
+
 			generate_gpg_key_pair
 			
 			;;
 
-	4)		# import GPG public key and backup keyring
+	4)		# import GPG public key and backup keyring:
 			service_index=4
 			echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
 			get_required_service_type
 			;;
 
-	5)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy
+	5)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy:
 			service_index=5
 			echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
 			get_required_service_type
@@ -739,6 +756,7 @@ case $service_option in
 			exit 0
 			;;
 
+			# DEFAULT (FAILSAFE) CASE:
 	*) 		echo "Just a simple 1-5 will do..." && sleep 2
 			service_index=0
 		 	get_required_service_type
@@ -778,6 +796,22 @@ function get_required_service_type
 
 }
 
+#######################################################################
+# SET PATH TO CONFIGURATION FILE:
+## TODO: USE OPTION MENU, THE $REPLY VARIABLE... FOR BETTER INTERACTION
+function get_config_file_to_use
+{
+	## 
+	echo
+	echo ">>>   Firstly, which configuration file will we be using today...?   :::"
+	echo
+	echo "Enter the full, absolute path (with leading /), or just press Enter to accept the default"
+	echo
+	echo 
+
+	read user_config_file_fullpath
+}
+
 ###############################################################################################
 ###############################################################################################
 
@@ -813,11 +847,100 @@ then
 	do
 		echo "incoming string is now: $incoming_string"
 		test_file_path_valid_form "$incoming_string"
+		if [ $? -eq 0 ]
+		then
+			# from now on, we can talk about a plaintext file path...
+			plaintext_file_fullpath="$incoming_string"
+			echo "The full path to the plaintext file is: $plaintext_file_fullpath"
+
+			## ASSUMING THE FILE IS NOT 'SOMEHOW' SITTING IN THE ROOT DIRECTORY
+			plaintext_dir_fullpath=${plaintext_file_fullpath%/*}
+			#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
+			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
+		else
+			echo "The valid form test FAILED and returned: $?"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_UNEXPECTED_ARG_VALUE
+		fi	
+
+		# if the above test returns ok, plaintext_file_fullpath and plaintext_dir_fullpath are now set
 		test_file_path_access "$plaintext_file_fullpath" "$plaintext_dir_fullpath"
+		if [ $? -eq 0 ]
+		then
+			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
+		else
+			echo "The file path access test FAILED and returned: $?"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_REQUIRED_FILE_NOT_FOUND
+		fi	
 
 	done
 
 fi
+
+# 3. GET WHICH CONFIGURATION FILE SCRIPT WILL READ FROM AND TEST THAT IT CAN BE ACCESSED AND READ OK
+
+echo
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo "STARTING THE 'SET PATH TO CONFIGURATION FILE' PHASE"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo
+
+get_config_file_to_use
+
+config_file_fullpath=${user_config_file_fullpath:-"default_config_file"}
+
+if [ "$config_file_fullpath" == "default_config_file" ]
+then
+	config_file_name="encryption_services_config"
+	echo "Our configuration filename is set to: $config_file_name" && echo
+
+	#config_dir_fullpath="$(cd $script_dir_fullpath; cd ../; pwd)" ## returns with no trailing /
+	config_dir_fullpath="/etc"
+	echo "PROVISIONALLY:Our configuration file sits in: $config_dir_fullpath" && echo
+
+	config_file_fullpath="${config_dir_fullpath}/${config_file_name}"
+	echo "PROVISIONALLY:The full path to our configuration file is: $config_file_fullpath" && echo
+
+elif [ "$config_file_fullpath" == "$user_config_file_fullpath" ]
+then
+	config_dir_fullpath="${user_config_file_fullpath%'/'*}" # also, try [[:alphanum:]] or [A-Za-z0-9_-]
+	echo "PROVISIONALLY:Our configuration file sits in: $config_dir_fullpath" && echo
+
+	config_file_fullpath="$user_config_file_fullpath"
+	echo "PROVISIONALLY:The full path to our configuration file is: $config_file_fullpath" && echo
+	#exit 0
+
+else
+	echo "path to configuration file set to: $config_file_fullpath so I QUIT"
+	echo "failsafe exit. Unable to set up a configuration file" && sleep 2
+	echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
+	exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
+
+fi
+
+# WHICHEVER WAY THE CONFIG FILE WAS JUST SET, WE NOW TEST ITS' VALIDITY:
+
+test_file_path_valid_form "$config_file_fullpath"
+if [ $? -eq 0 ]
+then
+	echo "Configuration file full path is of VALID FORM"
+else
+	echo "The valid form test FAILED and returned: $?"
+	echo "Nothing to do now, but to exit..." && echo
+	exit $E_UNEXPECTED_ARG_VALUE
+fi	
+
+# if the above test returns ok, ...
+test_file_path_access "$config_file_fullpath" "$config_dir_fullpath"
+if [ $? -eq 0 ]
+then
+	echo "The full path to the CONFIGURATION FILE holding directory is: $config_dir_fullpath"
+else
+	echo "The CONFIGURATION file path access test FAILED and returned: $?"
+	echo "Nothing to do now, but to exit..." && echo
+	exit $E_REQUIRED_FILE_NOT_FOUND
+fi	
 
 # 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 # 
