@@ -22,10 +22,19 @@
 synchronised_location_holding_dir_fullpath=
 /home/algo/dir1/dir2/shared_stuff/
 
+## ########### DIRECTORIES IN WHICH GnuPG STORES KEYRINGS AND REVOCATION CERTIFICATES:  ########################
 
+# public_keyring_default_directory_fullpath variable:
+# The standard, default location for GnuPG public keyrings on linux systems
 
+public_keyring_default_directory_fullpath=
+/home/algo/.gnupg/
 
+# revocation_certificate_default_directory_fullpath variable:
+# The standard, default location for pre-generated GnuPG revocation certificates on linux systems
 
+revocation_certificate_default_directory_fullpath=
+/home/algo/.gnupg/openpgp-revocs.d/
 
 
 
