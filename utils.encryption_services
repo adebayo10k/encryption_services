@@ -14,24 +14,6 @@
 echo "USAGE: $(basename $0) <file paths>" # zero or more strings (representing fullpaths to files)
 ## at command line:~# 
 ##
-#######################################################################
-
-## REMEMBER TO CREATE A GOOD SYSTEM OF VARIABLE SEMANTICS BEFORE
-# STARTING TO ASSIGN NAMES. AVOID ON-THE-FLY NAMING. 
-
-#######################################################################
-
-# if we're located outide an executable PATH directory, (eg in a git tracked project directory)
-# soft link from PATH directory located namesake
-# ln -s TARGET LINK
-
-#######################################################################
-
-# the parent process - so we set any environment variables here.
-## AND REMEMBER TO SANITISE CODE
-
-#######################################################################
-
 
 ## EXIT CODES:
 E_UNEXPECTED_BRANCH_ENTERED=10
@@ -54,7 +36,6 @@ export E_UNKNOWN_EXECUTION_MODE
 
 #################################
 
-
 # GLOBAL VARIABLE DECLARATIONS:
 
 config_file_fullpath= # a full path to a file
@@ -64,7 +45,6 @@ test_line="" # global...
 service_index= # service number of selected service
 
 declare -a incoming_array=()
-#incoming_string=""
 
 encryption_system= # public_key | symmetric_key
 output_file_format= # ascii | binary
@@ -78,13 +58,9 @@ file_specific_command=""
 gpg_command='gpg'
 armor_option='--armor'
 output_option='--output'
-#ascii_file_extension='.asc' #default
-#binary_file_extension='.gpg'
 output_file_extension= # .asc | .gpg
 sender_option='--local-user'
 recipient_option='--recipient'
-#public_key_encrypt_option='--encrypt'
-#symmetric_encrypt_option='--symmetric'
 encryption_system_option= # --encrypt | --symmetric
 file_path_placeholder='<filepath_placeholder>'
 
@@ -96,6 +72,11 @@ all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file 
 synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
 public_keyring_default_directory_fullpath=
 revocation_certificate_default_directory_fullpath=
+
+this_host=$(hostname) #
+synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath only written to by this_host
+declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
+
 
 echo "	==================================================================="
 echo "	||                Welcome to ENCRYPTION SERVICES                   ||  author: adebayo10k"  
@@ -138,16 +119,26 @@ read
 ###############################################################################################
 # 
 # 
-function generate_gpg_key_pair
+function generate_and_manage_keys
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
-
-
 	# :
-	gpg --full-gen-key	
+	#gpg --full-gen-key	
 
 	# copy public keyring (each format) to the synchronised location partially defined in the configuration file
-	#
+	for pubkeyring in {"pubring.gpg","pubring.kbx"}
+	do
+		if [ -f "${synchronised_dir_fullpath}/${pubkeyring}" ]
+		then
+			echo && echo "A PUBLIC KEYRING WAS FOUND IN THE SYNC DIRECTORY"
+			# rename and archive this public keyring
+			mv "${synchronised_dir_fullpath}/${pubkeyring}" \
+			"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive/${pubkeyring}_before.$(date +'%F@%T')"
+		fi
+
+		cp "$public_keyring_default_directory_fullpath/${pubkeyring}" \
+		"${synchronised_dir_fullpath}"
+	done
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 
@@ -948,7 +939,7 @@ function test_file_path_access
 }
 ###############################################################################################
 # need to test for access to the file holding directory
-# 
+# # TODO: DO WE NEED ANOTHER TEST FOR PERMISSION TO WRITE TO DIRECTORY?
 function test_dir_path_access
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
@@ -1021,7 +1012,7 @@ case $service_option in
 			# does ...?
 			# ...
 
-			generate_gpg_key_pair
+			generate_and_manage_keys
 			
 			;;
 
@@ -1368,6 +1359,61 @@ else
 	exit $E_REQUIRED_FILE_NOT_FOUND
 fi	
 
+# 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
+#    +ALREADY EXIST, AND IF NOT, CREATE THEM:
+
+synchronised_dir_fullpath="${synchronised_location_holding_dir_fullpath}/${this_host}_gpg"
+echo && echo "synchronised_dir_fullpath variable now set to: $synchronised_dir_fullpath"
+
+# temporary rmdir during development, just until all directory creations confirmed working
+#rm -R "$synchronised_dir_fullpath"
+
+test_dir_path_access "$synchronised_dir_fullpath"
+if [ $? -eq 0 ]
+then
+	echo "synchronised_dir_fullpath ALREADY EXISTS AND CAN BE ENTERED OK"
+else
+	echo && echo "synchronised_dir_fullpath DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
+	# create it..
+	mkdir "$synchronised_dir_fullpath"
+	if [ $? -eq 0 ]
+	then
+		echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
+	else
+		echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $?"
+		echo "Nothing to do now, but to exit..." && echo
+		exit $E_UNEXPECTED_BRANCH_ENTERED
+	fi	
+fi
+
+synchronised_subdirs=\
+(\
+"${synchronised_dir_fullpath}/${this_host}_public_keys_incoming" \
+"${synchronised_dir_fullpath}/${this_host}_public_keys_outgoing" \
+"${synchronised_dir_fullpath}/${this_host}_revocation_certificates" \
+"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive" \
+)
+
+for subdir in ${synchronised_subdirs[@]}
+do
+	test_dir_path_access "$subdir"
+	if [ $? -eq 0 ]
+	then
+		echo "subdir ALREADY EXISTS AND CAN BE ENTERED OK"
+	else
+		echo && echo "subdir DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
+		# create it..
+		mkdir "$subdir"
+		if [ $? -eq 0 ]
+		then
+			echo "subdir CREATION WAS SUCCESSFUL"
+		else
+			echo "The mkdir of subdir FAILED and returned: $?"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_UNEXPECTED_BRANCH_ENTERED
+		fi	
+	fi
+done
 
 # 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 # 
