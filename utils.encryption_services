@@ -72,6 +72,9 @@ plaintext_file_fullpath=""
 plaintext_dir_fullpath=""
 abs_filepath_regex='^(/{1}[A-Za-z0-9\._-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
+email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
+# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
+# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
 
 synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
 public_keyring_default_directory_fullpath=
@@ -298,7 +301,8 @@ get_revocation_certificate_default_directory_fullpath_config # should this be na
 # REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
 # debug printouts:
 echo
-echo "FINALLY, synchronised_location_holding_dir_fullpath variable now set to: $synchronised_location_holding_dir_fullpath" && echo
+echo "FINALLY, synchronised_location_holding_dir_fullpath variable now set to: \
+$synchronised_location_holding_dir_fullpath" && echo
 
 # this valid form test works for sanitised directory paths too
 test_file_path_valid_form "$synchronised_location_holding_dir_fullpath"
@@ -315,7 +319,8 @@ fi
 test_dir_path_access "$synchronised_location_holding_dir_fullpath"
 if [ $? -eq 0 ]
 then
-	echo "The full path to the SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY is: $synchronised_location_holding_dir_fullpath"
+	echo "The full path to the SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY is: \
+	$synchronised_location_holding_dir_fullpath"
 else
 	echo "The SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY path access test FAILED and returned: $?"
 	echo "Nothing to do now, but to exit..." && echo
@@ -324,7 +329,8 @@ fi
 
 # NEXT...
 
-echo "FINALLY, public_keyring_default_directory_fullpath variable now set to: $public_keyring_default_directory_fullpath" && echo
+echo "FINALLY, public_keyring_default_directory_fullpath variable now set to: \
+$public_keyring_default_directory_fullpath" && echo
 
 # this valid form test works for sanitised directory paths too
 test_file_path_valid_form "$public_keyring_default_directory_fullpath"
@@ -341,7 +347,8 @@ fi
 test_dir_path_access "$public_keyring_default_directory_fullpath"
 if [ $? -eq 0 ]
 then
-	echo "The full path to the PUBLIC KEYRING DEFAULT DIRECTORY is: $public_keyring_default_directory_fullpath"
+	echo "The full path to the PUBLIC KEYRING DEFAULT DIRECTORY is: \
+	$public_keyring_default_directory_fullpath"
 else
 	echo "The PUBLIC KEYRING DEFAULT DIRECTORY path access test FAILED and returned: $?"
 	echo "Nothing to do now, but to exit..." && echo
@@ -350,7 +357,8 @@ fi
 
 # NEXT...
 
-echo "FINALLY, revocation_certificate_default_directory_fullpath variable now set to: $revocation_certificate_default_directory_fullpath" && echo
+echo "FINALLY, revocation_certificate_default_directory_fullpath variable now set to: \
+$revocation_certificate_default_directory_fullpath" && echo
 
 # this valid form test works for sanitised directory paths too
 test_file_path_valid_form "$revocation_certificate_default_directory_fullpath"
@@ -367,7 +375,8 @@ fi
 test_dir_path_access "$revocation_certificate_default_directory_fullpath"
 if [ $? -eq 0 ]
 then
-	echo "The full path to the REVOCATION CERTIFICATE DEFAULT DIRECTORY is: $revocation_certificate_default_directory_fullpath"
+	echo "The full path to the REVOCATION CERTIFICATE DEFAULT DIRECTORY is: \
+	$revocation_certificate_default_directory_fullpath"
 else
 	echo "The REVOCATION CERTIFICATE DEFAULT DIRECTORY path access test FAILED and returned: $?"
 	echo "Nothing to do now, but to exit..." && echo
@@ -478,18 +487,86 @@ echo "encryption_services exit code: $?"
 
 
 ###############################################################################################
+##########################################################################################################
+# 
+function test_email_valid_form
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	test_email=$1
+	
+	echo "test_email is set to: $test_email"
+
+	if [[ $test_email =~ $email_regex ]]
+	then
+		echo "THE FORM OF THE INCOMING PARAMETER IS OF A VALID EMAIL ADDRESS"
+		test_result=0
+	else
+		echo "PARAMETER WAS NOT A MATCH FOR OUR KNOWN EMAIL FORM REGEX: "$email_regex"" && sleep 1 && echo
+		echo "Returning with a non-zero test result..."
+		test_result=1
+		return $E_UNEXPECTED_ARG_VALUE
+	fi 
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	return "$test_result"
+}
+
+###############################################################################################
 function generate_and_manage_keys
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-	# in order to identify (soon) the key-pair for which to make a revocation certificate,\
-	# we now need to tell the program which unique user-id we're going to use for key generation:
+	# in order for script to use a variable (user_id) when creating certificate revocation and public key export commands, \
+	# we now assign an identifying email address to the global user_id variable:
+	# we're doing it here just to make sure we use the same one during interactive key generation:
+	
+	while true
+	do
 
-	echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN"
+		user_id=""
 
-	read user_id
+		echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN:"
+		read user_id
+		echo && echo "You specified the user-id: $user_id" && echo
 
-	echo && echo "You specified the user-id: $user_id" && echo
+		# test user_id for valid email form
+		test_email_valid_form "$user_id"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
+			break
+		else
+			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+			continue # just in case we add more code after here
+		fi
+
+	done
+
+	#user_id=""
+#
+	#echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN"
+	#read user_id
+	#echo && echo "You specified the user-id: $user_id" && echo
+#
+	## test user_id for valid email form
+	#test_email_valid_form "$user_id"
+	#if [ $? -eq 0 ]
+	#then
+	#	echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
+	#else
+	#	echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+	#	generate_and_manage_keys
+	#fi
+#
+
+
+	echo && echo "EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ..." && echo
+	sleep 12
+
 
 	# generate the new public key-pair
 	gpg --full-gen-key	
@@ -550,7 +627,8 @@ function generate_and_manage_keys
 	# we first just need to load up incoming_array
 	# we'll also append a list of fingerprints
 
-	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" --gen-revoke "$user_id"
+	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" \
+	--gen-revoke "$user_id"
 	echo && echo "A USER-GENERATED REVOCATION CERT HAS NOW BEEN ADDED TO THE DEFAULT GNUPG REVOC DIRECTORY"
 
 
@@ -588,7 +666,7 @@ function generate_and_manage_keys
 
 
 
-	echo && echo "REV CERT ENCRYPTION NOW COMPLETE... MOVING ON TO REV CERT RENAME AND MOVE..." && echo
+	echo && echo "REV CERT ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REV CERT RENAME AND MOVE..." && echo
 	sleep 12
 
 
@@ -704,7 +782,8 @@ function verify_file_encryption_results
 	
 	# test encrypted file for expected file type (regular) and read permission
 	# TODO: THIS SHOULD BE ONE FOR THE test_file_path_access FUNCTION
-	if [ -f "${valid_path}.ENCRYPTED${output_file_extension}" ]  && [ -r "${valid_path}.ENCRYPTED${output_file_extension}" ]
+	if [ -f "${valid_path}.ENCRYPTED${output_file_extension}" ] \
+	&& [ -r "${valid_path}.ENCRYPTED${output_file_extension}" ]
 	then
 		# encrypted file found and accessible
 		echo "Encrypted file found to be readable" && echo
@@ -786,7 +865,8 @@ function create_generic_pub_key_encryption_command_string
 
 	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
 
-# $ gpg --armor --output "$plaintext_file_fullpath.ENCRYPTED.asc" --local-user <uid> --recipient <uid> --encrypt "$plaintext_file_fullpath"
+# $ gpg --armor --output "$plaintext_file_fullpath.ENCRYPTED.asc" \
+# --local-user <uid> --recipient <uid> --encrypt "$plaintext_file_fullpath"
 
 	generic_command=
 
@@ -825,10 +905,22 @@ function get_recipient_uid
 	while true
 	do
 
-		echo "Enter the user-id of a RECIPIENT || Type exit"
+		uid=""
+
+		echo "Enter the user-id of a RECIPIENT:"
 		read uid
 
-		# validate recipient_uid HERE
+		# TODO: later, also validate against known public keys in keyring
+		# test uid for valid email form
+		test_email_valid_form "$uid"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
+		else
+			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+			continue
+		fi
+
 
 		recipient_uid="$uid"
 		echo "One recipients user-id is now set to the value: $recipient_uid" && echo
@@ -860,11 +952,47 @@ function get_sender_uid
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-	echo "Enter the user-id of the SENDER || Type q to exit"
-	read uid
 
-	# TODO: validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
-	# FAIL AND REPEAT REQUEST IF THIS IS NOT THE CASE
+	while true
+	do
+
+		uid=""
+
+		echo "Enter the user-id of the SENDER:"
+		read uid
+
+		# TODO: later, validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
+		# test uid for valid email form
+		test_email_valid_form "$uid"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
+			break
+		else
+			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+			continue # just in case we add more code after here
+		fi
+
+	done
+
+	#uid=""
+#
+	#echo "Enter the user-id of the SENDER:"
+	#read uid
+#
+	## TODO: later, validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
+	## FAIL AND REPEAT REQUEST IF THIS IS NOT THE CASE
+#
+	## test uid for valid email form
+	#test_email_valid_form "$uid"
+	#if [ $? -eq 0 ]
+	#then
+	#	echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
+	#else
+	#	echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+	#	get_sender_uid
+	#fi
+#
 
 	sender_uid="$uid"
 	echo "sender user-id is now set to the value: $sender_uid"
@@ -1372,7 +1500,7 @@ function test_file_path_valid_form
 		echo "THE FORM OF THE INCOMING PARAMETER IS OF A VALID ABSOLUTE FILE PATH"
 		test_result=0
 	else
-		echo "AN INCOMING PARAMETER WAS SET, BUT WAS NOT A MATCH FOR OUR KNOWN PATH FORM REGEX "$abs_filepath_regex"" && sleep 1 && echo
+		echo "PARAMETER WAS NOT A MATCH FOR OUR KNOWN PATH FORM REGEX: "$abs_filepath_regex"" && sleep 1 && echo
 		echo "Returning with a non-zero test result..."
 		test_result=1
 		return $E_UNEXPECTED_ARG_VALUE
