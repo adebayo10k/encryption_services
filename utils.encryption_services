@@ -477,7 +477,7 @@ echo "encryption_services exit code: $?"
 
 
 
-# 
+###############################################################################################
 function generate_and_manage_keys
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
@@ -500,25 +500,37 @@ function generate_and_manage_keys
 	sleep 12
 
 
-	# copy public keyring (each format) to the synchronised location
+	# public keyring backup:
 	for pubkeyring in {"pubring.gpg","pubring.kbx"}
 	do
-		if [ -f "${synchronised_dir_fullpath}/${pubkeyring}" ]
+
+		# copy public keyring (each format) to the archived location
+		test_file_path_access "${synchronised_dir_fullpath}/${pubkeyring}"
+		if [ $? -eq 0 ]
 		then
-			echo && echo "A PUBLIC KEYRING WAS FOUND IN THE SYNC DIRECTORY"
+			echo && echo "AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE SYNC'D LOCATION"
 			# rename and archive this existing public keyring
 			mv "${synchronised_dir_fullpath}/${pubkeyring}" \
 			"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive/${pubkeyring}_before.$(date +'%F@%T')"
-			echo && echo "THE EXISTING PUBLIC KEYRING WAS RENAMED AND ARCHIVED"
+			echo && echo "THE EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS RENAMED AND ARCHIVED"
+		else
+			echo && echo "COULDN'T FIND AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING IN THE SYNC'D LOCATION"		
 		fi
-		# copy the new version to the sync'd location
-		cp "$public_keyring_default_directory_fullpath/${pubkeyring}" \
-		"${synchronised_dir_fullpath}"
-		echo && echo "THE LATEST PUBLIC KEYRING HAS NOW BEEN COPIED TO THE SYNC LOCATION"
+
+		# copy public keyring (each format) to the synchronised location
+		test_file_path_access "$public_keyring_default_directory_fullpath/${pubkeyring}"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "A NEW \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE GnuPG DEFAULT LOCATION"
+			# copy the new version to the sync'd location
+			cp "$public_keyring_default_directory_fullpath/${pubkeyring}" \
+			"${synchronised_dir_fullpath}"
+			echo && echo "THE LATEST \"${pubkeyring}\" PUBLIC KEYRING HAS NOW BEEN COPIED TO THE SYNC'D LOCATION"
+		else
+			echo && echo "COULDN'T FIND A NEW \"${pubkeyring}\" PUBLIC KEYRING IN THE GnuPG DEFAULT LOCATION"		
+		fi
+
 	done
-
-
-
 
 
 	## PAUSE HERE TO SAY KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO...
@@ -1373,7 +1385,7 @@ function test_file_path_valid_form
 }
 
 ###############################################################################################
-# need to test for read access to file 
+# test for read access to file 
 # 
 function test_file_path_access
 {
@@ -1402,7 +1414,7 @@ function test_file_path_access
 	return "$test_result"
 }
 ###############################################################################################
-# need to test for access to the file holding directory
+# test for access to the file holding directory
 # # TODO: DO WE NEED ANOTHER TEST FOR PERMISSION TO WRITE TO DIRECTORY?
 function test_dir_path_access
 {
