@@ -50,26 +50,33 @@ service_index= # service number of selected service
 
 declare -a incoming_array=()
 
+################################################
+# independent variables
 encryption_system= # public_key | symmetric_key
 output_file_format= # ascii | binary
+
+# dependent variables
+encryption_system_option= # --encrypt | --symmetric
+output_file_extension= # .asc | .gpg
+
+armor_option='--armor'
+sender_option='--local-user'
+recipient_option='--recipient'
 sender_uid=""
 recipient_uid=""
 declare -a recipient_uid_list=()
+################################################
+
+gpg_command='gpg'
+output_option='--output'
+file_path_placeholder='<filepath_placeholder>'
 
 generic_command=""
 file_specific_command=""
 
-gpg_command='gpg'
-armor_option='--armor'
-output_option='--output'
-output_file_extension= # .asc | .gpg
-sender_option='--local-user'
-recipient_option='--recipient'
-encryption_system_option= # --encrypt | --symmetric
-file_path_placeholder='<filepath_placeholder>'
-
 plaintext_file_fullpath=""
 plaintext_dir_fullpath=""
+
 abs_filepath_regex='^(/{1}[A-Za-z0-9\._-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
 email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
@@ -81,7 +88,7 @@ public_keyring_default_directory_fullpath=
 revocation_certificate_default_directory_fullpath=
 
 this_host=$(hostname) #
-synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath only written to by this_host
+synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath (only written to by this_host)
 declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
 
 
@@ -197,6 +204,7 @@ echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 echo
 
 get_config_file_to_use
+unset user_config_file_fullpath
 
 config_file_fullpath=${user_config_file_fullpath:-"default_config_file"}
 
@@ -263,7 +271,7 @@ else
 fi	
 
 
-# 3. TEST WHETHER THE CONFIGURATION FILE FORMAT IS VALID
+# 3. TEST WHETHER THE CONFIGURATION FILES' CONTENT FORMAT IS VALID
 while read lineIn
 do
 	test_and_set_line_type "$lineIn" 
@@ -450,7 +458,7 @@ bash -c "gpg --list-secret-keys"
 
 # 0. FIND OUT WHICH SERVICE IS REQUIRED
 
-get_required_service_type
+get_required_service
 
 
 # 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
@@ -546,25 +554,8 @@ function generate_and_manage_keys
 
 	done
 
-	#user_id=""
-#
-	#echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN"
-	#read user_id
-	#echo && echo "You specified the user-id: $user_id" && echo
-#
-	## test user_id for valid email form
-	#test_email_valid_form "$user_id"
-	#if [ $? -eq 0 ]
-	#then
-	#	echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
-	#else
-	#	echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
-	#	generate_and_manage_keys
-	#fi
-#
 
-
-	echo && echo "EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ..." && echo
+	echo && echo "[1] EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ...WAIT" && echo
 	sleep 12
 
 
@@ -573,7 +564,7 @@ function generate_and_manage_keys
 
 
 	## PAUSE HERE TO SAY KEY GENERATION COMPLETE... MOVING ON TO...
-	echo && echo "KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES..." && echo
+	echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES...WAIT" && echo
 	sleep 12
 
 
@@ -611,7 +602,7 @@ function generate_and_manage_keys
 
 
 	## PAUSE HERE TO SAY KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO...
-	echo && echo "KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO REV CERT GENERATION..." && echo
+	echo && echo "[3] KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO REVOCATION CERT. GENERATION...WAIT" && echo
 	sleep 12
 
 
@@ -629,11 +620,11 @@ function generate_and_manage_keys
 
 	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" \
 	--gen-revoke "$user_id"
-	echo && echo "A USER-GENERATED REVOCATION CERT HAS NOW BEEN ADDED TO THE DEFAULT GNUPG REVOC DIRECTORY"
+	echo && echo "A USER-GENERATED REVOCATION CERT. HAS NOW BEEN ADDED TO THE DEFAULT GNUPG REVOC DIRECTORY"
 
 
 
-	echo && echo "REV CERT GENERATION NOW COMPLETE... MOVING ON TO REV CERT ENCRYPTION..." && echo
+	echo && echo "[4] REVOCATION CERT. GENERATION NOW COMPLETE... MOVING ON TO REVOCATION CERT. ENCRYPTION...WAIT" && echo
 	sleep 12
 
 
@@ -666,18 +657,18 @@ function generate_and_manage_keys
 
 
 
-	echo && echo "REV CERT ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REV CERT RENAME AND MOVE..." && echo
+	echo && echo "[5] REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REVOCATION CERT. RENAME AND MOVE...WAIT" && echo
 	sleep 12
 
 
 	# rename all encrypted revocation certificates to the sync'd location
 	mv "$revocation_certificate_default_directory_fullpath"/* "${synchronised_dir_fullpath}/${this_host}_revocation_certificates"
 	
-	echo && echo "NEWLY ENCRYPTED REVOCATION CERTS NOW ALL (BOTH) MOVED TO THE SYNC'D LOCATION"
+	echo && echo "NEWLY ENCRYPTED REVOCATION CERTS. NOW ALL (BOTH) MOVED TO THE SYNC'D LOCATION"
 
 
 
-	echo && echo "REV CERT RENAME AND MOVE NOW COMPLETE... MOVING ON TO PUBLIC KEY EXPORT..." && echo
+	echo && echo "[6] REVOCATION CERTS. RENAME AND MOVE NOW COMPLETE... MOVING ON TO PUBLIC KEY EXPORT...WAIT" && echo
 	sleep 12
 
 
@@ -689,7 +680,7 @@ function generate_and_manage_keys
 
 
 
-	echo && echo "PUBLIC KEY EXPORT NOW COMPLETE... WE'RE DONE WITH KEY GENERATION AND MANAGEMENT..." && echo
+	echo && echo "[7] PUBLIC KEY EXPORT NOW COMPLETE... WE'RE DONE WITH KEY GENERATION AND MANAGEMENT...WAIT" && echo
 	sleep 12
 
 
@@ -763,7 +754,7 @@ function verify_file_encryption_results
 
 	valid_path="$1"
 
-
+	# TODO: FIND SOME BETTER TESTS FOR A GPG ENCRYPTED FILE
 	result=$(file "${valid_path}.ENCRYPTED${output_file_extension}" | grep 'PGP') # &2>/dev/null)
 
 	if [ $? -eq 0 ] && [ "$encryption_system" == "public_key" ]
@@ -776,7 +767,7 @@ function verify_file_encryption_results
 		echo "SYMMETRIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
 		echo "${valid_path}.ENCRYPTED${output_file_extension}"
 	else
-		return 1 ## unexpected file type
+		return 1 ## unexpected file type ERROR CODE
 	fi
 
 	
@@ -907,8 +898,10 @@ function get_recipient_uid
 
 		uid=""
 
-		echo "Enter the user-id of a RECIPIENT:"
+		echo "Enter the user-id of a RECIPIENT: or if really none, enter NONE"
 		read uid
+
+		if [ "$uid" = "NONE" ]; then break; fi
 
 		# TODO: later, also validate against known public keys in keyring
 		# test uid for valid email form
@@ -916,30 +909,33 @@ function get_recipient_uid
 		if [ $? -eq 0 ]
 		then
 			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
+
+			recipient_uid="$uid"
+			echo "One recipients user-id is now set to the value: $recipient_uid" && echo
+			recipient_uid_list+=( "${recipient_uid}" )
+			
+			echo "Any more recipients (whose public keys we hold) [y/n]?"
+			read more_recipients_answer
+
+			case $more_recipients_answer in
+			[yY])	echo "OK, another recipient requested...." && echo
+					continue
+					;;
+			[nN])	echo "OK, no more recipients needed...." && echo
+					break
+					;;
+			*)		echo "UNKNOWN RESPONSE...." && echo && sleep 2
+					echo "Entered the FAILSAFE BRANCH...." && echo && sleep 2
+					echo "ASSUMING AN AFFIRMATIVE RESPONSE...." && echo && sleep 2
+					continue
+					;;
+			esac
+
 		else
-			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..." && sleep 2
 			continue
 		fi
-
-
-		recipient_uid="$uid"
-		echo "One recipients user-id is now set to the value: $recipient_uid" && echo
-		recipient_uid_list+=( "${recipient_uid}" )
 		
-		echo "Any more recipients (whose public keys we hold) [y/n]?"
-		read more_recipients_answer
-
-
-		case $more_recipients_answer in
-		[yY])	echo "OK, another recipient requested...." && echo
-				;;
-		[nN])	echo "OK, no more recipients needed...." && echo
-				break
-				;;
-		*)		echo "Entered the FAILSAFE BRANCH...." && echo
-				echo "Continuing with while loop, as if (y) response...." && echo 
-				;;
-		esac
 	done
 
 
@@ -967,6 +963,9 @@ function get_sender_uid
 		if [ $? -eq 0 ]
 		then
 			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
+			
+			sender_uid="$uid"
+			echo "sender user-id is now set to the value: $sender_uid"
 			break
 		else
 			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
@@ -974,29 +973,6 @@ function get_sender_uid
 		fi
 
 	done
-
-	#uid=""
-#
-	#echo "Enter the user-id of the SENDER:"
-	#read uid
-#
-	## TODO: later, validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
-	## FAIL AND REPEAT REQUEST IF THIS IS NOT THE CASE
-#
-	## test uid for valid email form
-	#test_email_valid_form "$uid"
-	#if [ $? -eq 0 ]
-	#then
-	#	echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
-	#else
-	#	echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
-	#	get_sender_uid
-	#fi
-#
-
-	sender_uid="$uid"
-	echo "sender user-id is now set to the value: $sender_uid"
-
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
@@ -1043,37 +1019,50 @@ function set_defaults
 ###############################################################################################
 ###############################################################################################
 ###############################################################################################
-# 
-function get_file_encryption_config_mode
+# [ PUBLIC KEY || SYMMETRIC ] && [ ASCII || BINARY ]
+# MIGHT AS WELL ENUMERATE THE 4 POSSIBLE COMBINATIONS IN AN OPTION LIST! - (WITH A DEFAULT ASSUMED)
+function set_file_encryption_mode # 
 {
-		echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-	## reset variables:
-	mode_answer=""
-	
-	echo ">>>   Use defaults or configure parameters...?   :::"
-	echo
-	echo "Defaults mode = 2"
-	echo "Config mode = 9"
-	echo
+	while true
+	do
 
-	read mode_answer
-	case $mode_answer in 
-		[2])	set_defaults ## set all the defaults by importing them from a configuration file
-								# or for now, just assigning the values
-				echo "DEFAULT VALUES FOR COMMAND GENERATION HAVE NOW BEEN SET"
-				#
-				return 2
-					;;
-		[9]) 	echo "IN FUTURE, WE'LL GET USER PROVIDED CONFIGURATION PARAMETERS."
-				echo "... BUT FOR NOW, ONLY DEFAULTS MODE IS AVAILABLE."
-				get_file_encryption_config_mode
-				# return 9
-					;;
-		*) 		echo "Just one of two numbers... a [2] or a [9]..." && sleep 1
-				get_file_encryption_config_mode
-					;;
-	esac 
+		## reset variables:
+		mode_answer=""
+		
+		echo & echo
+		echo & echo "::: [ PUBLIC KEY || SYMMETRIC ]  &&  [ ASCII || BINARY ] :::"
+		echo & echo ":::  JUST PRESS ENTER FOR DEFAULT [PUBLIC KEY && ASCII]  :::"
+		echo & echo
+
+		read mode_answer
+
+		case $mode_answer in
+		[1])	# public key && ascii
+				set_defaults
+				break
+				;;
+		[2])	# public-key && binary
+				:
+				continue
+				;;
+		[3])	# symmetric && ascii
+				:
+				continue
+				;;
+		[4]) 	# symmetric && binary
+				:
+				continue
+				;;
+		*) 		echo "Normally, we'd just enter 1 - 4..." && sleep 1
+				echo "USING THE DEFAULT..." && sleep 1
+				set_defaults
+				break
+				;;
+		esac 
+
+	done
 
 	echo
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
@@ -1132,7 +1121,7 @@ function gpg_file_encryption_service
 	# 
 	check_gpg_user_keys # from user
 
-	get_file_encryption_config_mode
+	set_file_encryption_mode
 
 	if [ $encryption_system = "public_key" ]
 	then
@@ -1573,77 +1562,101 @@ function test_dir_path_access
 #########################################################################################################
 ## SET GLOBAL VARIABLE service_index WRT A SPECIFIC SERVICE
 # CALL THE FUNCTIONS AND SCRIPTS THAT COMBINE TO PROVIDE THE REQUESTED SERVICE
-function call_service
+function get_required_service
 {
-	service_option="$1"
 	
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
-	echo "user has selected option: $service_option"
+	
+	while true
+	do
+		
+		service_option=""
+		
+		echo
+		echo ">>>   :::   SELECT [SERVICE]   :::" # use cases
+		echo
+		echo 
+		echo ">>>   [1] = GPG ENCRYPT one or more plaintext files"
+		echo 
+		echo ">>>   [2] = GPG DECRYPT one or more encrypted files"
+		echo
+		echo ">>>   [3] = GENERATE a new GPG public key encryption key-pair and MANAGE keys and certificates"
+		echo
+		echo ">>>   [4] = IMPORT GPG public key and backup keyring"
+		echo
+		echo ">>>   [5] = GPG ENCRYPT and SIGN one or more documents"
+		echo
+		echo ">>>   [6] = REVOKE a key and PUBLISH revoked"
+		echo
+		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
+		echo
 
-case $service_option in
-	1)		# gpg file encryption service:
-			service_index=1
-			echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
+		read service_option
 
-			# NOW WE MUST CHECK FOR PRE-REQUISITES:
-			# does incoming_array have one or more elements?
-			# ...
-			if [ ${#incoming_array[@]} -gt 0 ]
-			then
-				gpg_file_encryption_service
-			else
-				echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
-				exit "$E_INCORRECT_NUMBER_OF_ARGS"
-			fi
-			;;
+		echo "user has selected option: $service_option"
 
-	2)		# gpg decryption ... for now, return to get_required_service_type and go loopy:
-			service_index=2
-			echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
-			get_required_service_type
-			;;
+		case $service_option in
+		1)		# gpg file encryption service:
+				service_index=1
+				echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
 
-	3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
-			# backup public keyring
-			# generate revocation certificate
-			# encrypt and backup revocation certificate
-			# backup exported public key
-			service_index=3
-			echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
+				# NOW WE MUST CHECK FOR PRE-REQUISITES:
+				# does incoming_array have one or more elements?
+				# ...
+				if [ ${#incoming_array[@]} -gt 0 ]
+				then
+					gpg_file_encryption_service
+				else
+					# this will soon be possible!
+					echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
+					exit "$E_INCORRECT_NUMBER_OF_ARGS"
+				fi
+				break
+				;;
 
-			generate_and_manage_keys				
-			;;
+		2)		# gpg decryption:
+				service_index=2
+				echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
+				continue
+				;;
 
-	4)		# import GPG public key and backup keyring:
-			service_index=4
-			echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
-			get_required_service_type
-			;;
+		3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
+				# backup public keyring
+				# generate revocation certificate
+				# encrypt and backup revocation certificate
+				# backup exported public key
+				service_index=3
+				echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
 
-	5)		# gpg document encryption and signing  ... for now, return to get_required_service_type and go loopy:
-			service_index=5
-			echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
-			get_required_service_type
-			;;
+				generate_and_manage_keys
+				break				
+				;;
 
-	9)		echo "NO CURRENT USE - JUST ISSUE THE COMMAND IN A SHELL!"
-			service_index=9
-			get_required_service_type
-			;;
+		4)		# import GPG public key and backup keyring:
+				service_index=4
+				echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
+				continue
+				;;
 
-[Qq])		echo
-			echo "Goodbye!" && sleep 1
-			exit 0
-			;;
+		5)		# gpg document encryption and signing:
+				service_index=5
+				echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
+				continue
+				;;
 
-			# DEFAULT (FAILSAFE) CASE:
-	*) 		echo "Just a simple 1-5 will do..." && sleep 2
-			service_index=0
-		 	get_required_service_type
-		 	;;
-esac 
+		[Qq])	echo && echo "Goodbye!" && sleep 1
+				exit 0
+				;;
 
+		*)		# DEFAULT (FAILSAFE) CASE:
+				echo "Just a simple 1-5 will do..." && sleep 2
+				service_index=0
+				continue
+				;;
+		esac 
+
+	done
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
@@ -1651,48 +1664,17 @@ esac
 }
 
 #########################################################################################################
-function get_required_service_type
-{
-##
-	echo
-	echo ">>>   Which encryption type services do you require...?   :::"
-	echo
-	echo 
-	echo ">>>   1 = GPG encrypt one or more plaintext files"
-	echo 
-	echo ">>>   2 = GPG decrypt one or more encrypted files"
-	echo
-	echo ">>>   3 = generate a NEW GPG public key encryption key-pair and manage keys and certificates"
-	echo
-	echo ">>>   4 = import GPG public key and backup keyring"
-	echo
-	echo ">>>   5 = GPG encrypt and sign one or more documents"
-	echo
-	echo ">>>   [Q/q] = quit, leave, return contRol and exeet"
-	echo
-
-	read service_option
-
-	call_service $service_option
-
-}
-
-#######################################################################
-# SET PATH TO CONFIGURATION FILE:
-## TODO: USE OPTION MENU, THE $REPLY VARIABLE... FOR BETTER INTERACTION
+# IF USE CASES FOR THE COEXISTENCE OF DIFFERENT CONFIGURATION FILES EVER ARISES
+# WE CAN USE THIS FUNCTION TO USER OPTIONS:
+# USE OPTION MENU, THE $REPLY VARIABLE... FOR BETTER INTERACTION
 function get_config_file_to_use
 {
 	## 
 	echo
-	echo ">>>   Firstly, which configuration file will we be using today...?   :::"
+	echo ":::   [ USING THE DEFAULT CONFIGURATION FILE ]   :::"
 	echo
-	echo "Enter the full, absolute path (with leading /), or just press Enter to accept the default"
-	echo
-	echo 
-
-	read user_config_file_fullpath
+	sleep 4
 }
-
 ###############################################################################################
 
 main "$@"; exit
