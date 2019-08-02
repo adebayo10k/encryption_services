@@ -92,6 +92,10 @@ synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_
 declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
 
 
+#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
+# might also be useful to validate that no parameters were given from the command line.
+# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
+
 echo "	==================================================================="
 echo "	||                Welcome to ENCRYPTION SERVICES                   ||  author: adebayo10k"  
 echo "	==================================================================="
@@ -112,6 +116,19 @@ echo "The absolute path to this script is: $0"
 script_root_dir="${0%'/'"$(basename $0)"}"  
 echo "Script root directory set to: $script_root_dir"
 export script_root_dir
+
+#entry_test
+#
+#	case $requested_mount_dir in
+#	"not_yet_set")	read_fs_to_mount ## script was called without params, so from cmd line
+#					;;
+#	*) 				echo "requested directory passed into mount_ecrypt_dirs ok" && sleep 1 && echo
+#					echo "requested directory is $requested_mount_dir" && sleep 1 && echo
+#					query_fs_to_mount "$requested_mount_dir"
+#					;;
+#	esac 
+#
+#	#unset $requested_mount_dir
 
 
 echo "ON ENTRY, script_root_dir WAS SET TO: $script_root_dir"
@@ -494,7 +511,7 @@ echo "encryption_services exit code: $?"
 
 
 
-###############################################################################################
+
 ##########################################################################################################
 # 
 function test_email_valid_form
@@ -522,10 +539,10 @@ function test_email_valid_form
 
 	return "$test_result"
 }
-
 ###############################################################################################
-function generate_and_manage_keys
+function set_working_user_id
 {
+
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
 	# in order for script to use a variable (user_id) when creating certificate revocation and public key export commands, \
@@ -555,6 +572,18 @@ function generate_and_manage_keys
 	done
 
 
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+
+###############################################################################################
+function generate_and_manage_keys
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	
+
+	set_working_user_id
+
 	echo && echo "[1] EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ...WAIT" && echo
 	sleep 12
 
@@ -562,8 +591,11 @@ function generate_and_manage_keys
 	# generate the new public key-pair
 	gpg --full-gen-key	
 
+	###########
+	## TEST FOR: ###########         :::::::        SUCCESSFUL GENERATION OF NEW KEYPAIR
+	###########
 
-	## PAUSE HERE TO SAY KEY GENERATION COMPLETE... MOVING ON TO...
+
 	echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES...WAIT" && echo
 	sleep 12
 
@@ -1562,6 +1594,7 @@ function test_dir_path_access
 #########################################################################################################
 ## SET GLOBAL VARIABLE service_index WRT A SPECIFIC SERVICE
 # CALL THE FUNCTIONS AND SCRIPTS THAT COMBINE TO PROVIDE THE REQUESTED SERVICE
+# 
 function get_required_service
 {
 	
@@ -1590,6 +1623,13 @@ function get_required_service
 		echo ">>>   [6] = REVOKE a key and PUBLISH revoked"
 		echo
 		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
+		echo
+		echo
+		echo ">>>   :::   OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
+		echo
+		echo ">>>   IMPORTING public keys into keyrings"
+		echo ">>>   SIGNING of imported keys using our private keys"
+		echo ">>>   ...."
 		echo
 
 		read service_option
