@@ -560,7 +560,23 @@ function set_working_user_id
 
 		# test user_id for valid email form
 		test_email_valid_form "$user_id"
-		if [ $? -eq 0 ]
+		valid_email_result=$?
+		echo " "
+
+		if [ $valid_email_result -eq 0 ]
+		then
+			echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
+			#break
+		else
+			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
+			continue # just in case we add more code after here
+		fi
+
+		# test_uid_in_pub_keyring
+		# uid_in_keyring_result=$?
+		echo " "
+		
+		if [ $uid_in_keyring_result -eq 0 ]
 		then
 			echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
 			break
@@ -683,7 +699,8 @@ function generate_and_manage_keys
 
 	echo && echo "JUST ABOUT TO CALL gpg_file_encryption_service ..."
 
-	gpg_file_encryption_service
+	gpg_file_encryption_service # we can use ANY available private key for this, not just the newly generated one! tell the user!
+	# result_code=$?
 
 	echo && echo "JUST RETURNED FROM gpg_file_encryption_service ..."
 
@@ -1150,6 +1167,7 @@ function gpg_file_encryption_service
 	# sets the generic_command global
 	#create a generic file encryption command string for either public key or symmetric key encryption:
 
+	encrypt_result=
 	# 
 	check_gpg_user_keys # from user
 
@@ -1182,10 +1200,13 @@ function gpg_file_encryption_service
 
 		# check that expected output file now exists, is accessible and has expected encypted file properties
 		verify_file_encryption_results "${valid_path}"
-		if [ $? -ne 0 ]
+		encrypt_result=$?
+		if [ $encrypt_result -eq 0 ]
 		then
-			echo "FAILURE REPORT...ON STATE..."
-			exit 1
+			echo && echo "SUCCESSFUL VERIFICATON OF ENCRYPTION encrypt_result: $encrypt_result"
+		else			
+			echo "FAILURE REPORT...ON STATE...encrypt_result: $encrypt_result"
+			exit 1 ### NEED AN EXIT REASON CODE HERE
 		fi	
 	done
 
@@ -1200,6 +1221,8 @@ function gpg_file_encryption_service
 	else
 		echo "FAILED TO FIND THE SHRED PROGRAM ON THIS SYSTEM, SO SKIPPED SHREDDING OF ORIGINAL PLAINTEXT FILES"
 	fi	
+
+	return $encrypt_result
 
 }
 
@@ -1647,6 +1670,7 @@ function get_required_service
 				if [ ${#incoming_array[@]} -gt 0 ]
 				then
 					gpg_file_encryption_service
+					# result_code=$?
 				else
 					# this will soon be possible!
 					echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
