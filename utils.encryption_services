@@ -512,7 +512,35 @@ echo "encryption_services exit code: $?"
 ###############################################################################################
 # 
 
+##########################################################################################################
+# returns 
+function export_public_keys
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 
+	test_result=
+	public_key_export_OK=false
+	
+	echo "public_key_export_OK is set to: $public_key_export_OK"
+
+	# ascii armour export the new public key from its' keyring to the sync'd location
+	gpg --armor --output "${synchronised_dir_fullpath}/${this_host}_public_keys_outgoing/pub_key_${this_host}_$(date +'%F@%T').asc" \
+	--export "$user_id"
+	test_result=$?
+
+	if [ $test_result -eq 0 ]
+	then
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE EXPORT OF PUBLIC KEYS WAS SUCCESSFUL"
+		public_key_export_OK=true
+	else
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE EXPORT OF PUBLIC KEYS FAILED"
+		public_key_export_OK=false
+	fi
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	echo "public_key_export_OK was set to: $public_key_export_OK"
+}
 ##########################################################################################################
 # returns 
 function rename_and_move_revocation_certificates
@@ -813,21 +841,37 @@ function generate_and_manage_keys
 	set_working_user_id
 
 	##############################################
+	
+	echo && echo "[1] EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO:"
+	echo && echo "KEY GENERATION"
 
-	echo && echo "[1] EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ...WAIT" && echo
+	echo && echo "[1] KNOWN DEPENDENCIES: "
+	echo "NONE"
+
+	echo && echo "[1] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
+	echo && echo "...WAIT ...YOU'RE ABOUT TO BE ASKED FOR SOME KEY GENERATION PARAMETERS..."	
 	sleep 12
 	
 	generate_public_keypair
 
 	##############################################
 
+	echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO:"
+	echo && echo "KEYRING BACKUP ACTIVITIES"
+
+	echo && echo "[2] KNOWN DEPENDENCIES: "
+	echo "1. KEY GENERATION"
+
 	if [ $new_keygen_OK = true ]
 	then
-		echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES...WAIT" && echo
+		echo && echo "[2] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION..."
+		echo && echo "...WAIT"	
+		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
 	
@@ -835,13 +879,23 @@ function generate_and_manage_keys
 
 	##############################################
 
+	echo && echo "[3] KEYRING BACKUP ACTIVITIES PRESUMED COMPLETE... MOVING ON TO:"
+	echo && echo "REVOCATION CERT. GENERATION"
+
+	echo && echo "[3] KNOWN DEPENDENCIES: "
+	echo "1. KEY GENERATION"
+	echo "2. user_id"
+
 	if [ $new_keygen_OK = true ]
 	then
-		echo && echo "[3] KEYRING BACKUP ACTIVITIES PRESUMED COMPLETE... MOVING ON TO REVOCATION CERT. GENERATION...WAIT" && echo
+		echo && echo "[3] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION..."
+		echo && echo "...WAIT"	
+		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
 
@@ -849,13 +903,22 @@ function generate_and_manage_keys
 
 	##############################################
 
+	echo && echo "[4] USER-GENERATED REVOCATION CERT. ACTIVITIES COMPLETE... MOVING ON TO:"
+	echo && echo "REVOCATION CERT. ENCRYPTION"
+
+	echo && echo "[4] KNOWN DEPENDENCIES: "
+	echo "1. REVOCATION CERT. GENERATION"
+
 	if [ $new_key_rev_cert_OK = true ]
 	then
-		echo && echo "[4] USER-GENERATED REVOCATION CERT. ACTIVITIES COMPLETE... MOVING ON TO REVOCATION CERT. ENCRYPTION...WAIT" && echo
+		echo && echo "[4] EXISTENCE OF REVOCATION CERT. GENERATION DEPENDENCY CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION...WAIT" && echo && sleep 4
+		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION..."
+		echo && echo "...WAIT ...YOU'RE ABOUT TO BE ASKED FOR SOME ENCRYPTION PARAMETERS..."	
+		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
 	
@@ -863,13 +926,22 @@ function generate_and_manage_keys
 
 	##############################################
 
+	echo && echo "[5] REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO:"
+	echo && echo "REVOCATION CERT. RENAME AND MOVE"
+
+	echo && echo "[5] KNOWN DEPENDENCIES: "
+	echo "1. REVOCATION CERT. ENCRYPTION"
+
 	if [ $rev_cert_encrypt_OK = true ]
 	then
-		echo && echo "[5] REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REVOCATION CERT. RENAME AND MOVE...WAIT" && echo
+		echo && echo "[5] EXISTENCE OF REVOCATION CERT. ENCRYPTION DEPENDENCY CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION...WAIT" && echo && sleep 4
+		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION..."
+		echo && echo "...WAIT"	
+		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
 
@@ -877,18 +949,23 @@ function generate_and_manage_keys
 
 	##############################################
 
-	echo && echo "[5] ENCRYPTED REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO PUBLIC KEYS EXPORT...WAIT" && echo
-	echo && echo "[5] KNOWN DEPENDENCIES: "
+	echo && echo "[6] REVOCATION CERT. RENAME AND MOVE NOW COMPLETE... MOVING ON TO:"
+	echo && echo "PUBLIC KEYS EXPORT"
+
+	echo && echo "[6] KNOWN DEPENDENCIES: "
 	echo "1. KEY GENERATION"
-	echo "2. user_id" 
+	echo "2. user_id"
 
 	if [ $new_keygen_OK = true ]
 	then
-		echo && echo "[5] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo		
+		echo && echo "[6] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION"
+		echo && echo "...WAIT"	
+		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
 
@@ -896,24 +973,29 @@ function generate_and_manage_keys
 
 	##############################################
 
+	echo && echo "[7] PUBLIC KEYS EXPORT NOW COMPLETE... MOVING ON TO:"
+	echo && echo "FINISHING..."
 
+	echo && echo "[7] KNOWN DEPENDENCIES: "
+	echo "1. PUBLIC KEYS EXPORT"
 
+	if [ $public_key_export_OK = true ]
+	then
+		echo && echo "[7] EXISTENCE OF PUBLIC KEYS EXPORT CONFIRMED OK" && echo
+		echo && echo "...WAIT"	
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF PUBLIC KEYS EXPORT"
+		echo && echo "...WAIT"	
+		sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
 
+	echo && echo "[7] WE'VE NOW COMPLETED THE WHOLE PROCESS OF KEY GENERATION AND MANAGEMENT...WAIT" && echo
+	sleep 4
 
-	echo && echo "[6] REVOCATION CERTS. RENAME AND MOVE NOW COMPLETE... MOVING ON TO PUBLIC KEY EXPORT...WAIT" && echo
-	sleep 12
-
-
-	# ascii armour export the new public key from its' keyring to the sync'd location
-	gpg --armor --output "${synchronised_dir_fullpath}/${this_host}_public_keys_outgoing/pub_key_${this_host}_$(date +'%F@%T').asc" \
-	--export "$user_id"
-	
-	echo && echo "NEW PUBLIC KEY EXPORTED TO THE SYNC'D LOCATION"
-
-
-
-	echo && echo "[7] PUBLIC KEY EXPORT NOW COMPLETE... WE'RE DONE WITH KEY GENERATION AND MANAGEMENT...WAIT" && echo
-	sleep 12
+	##############################################
 
 
 	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
