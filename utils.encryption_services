@@ -92,6 +92,13 @@ synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_
 declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
 
 
+new_keygen_OK=
+new_key_rev_cert_OK=
+rev_cert_encrypt_OK=
+rev_certs_moved_OK=
+public_key_export_OK=
+
+
 #requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
 # might also be useful to validate that no parameters were given from the command line.
 # USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
@@ -506,14 +513,217 @@ echo "encryption_services exit code: $?"
 # 
 
 
-
-
-
-
-
-
 ##########################################################################################################
-# 
+# returns 
+function rename_and_move_revocation_certificates
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	rev_certs_moved_OK=false
+	
+	echo "rev_certs_moved_OK is set to: $rev_certs_moved_OK"
+
+	# rename all encrypted revocation certificates to the sync'd location
+	mv "$revocation_certificate_default_directory_fullpath"/* "${synchronised_dir_fullpath}/${this_host}_revocation_certificates"
+	test_result=$?
+
+	if [ $test_result -eq 0 ]
+	then
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE ENCRYPTED REVOCATION CERTS. RENAME AND MOVE WAS SUCCESSFUL"
+		rev_certs_moved_OK=true
+	else
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE ENCRYPTED REVOCATION CERTS. RENAME AND MOVE FAILED"
+		rev_certs_moved_OK=false
+	fi
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	echo "rev_certs_moved_OK was set to: $rev_certs_moved_OK"
+}
+##########################################################################################################
+# returns 
+function encrypt_revocation_certificates
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	rev_cert_encrypt_OK=false
+	
+	echo "rev_cert_encrypt_OK is set to: $rev_cert_encrypt_OK"
+
+
+	touch "${synchronised_dir_fullpath}/${this_host}_revocation_certificates/keypair_fingerprint_list"
+
+	for file in "${revocation_certificate_default_directory_fullpath}"/*
+	do
+		incoming_array+=( "${file}" )
+		if [[ $file =~ .rev$ ]]
+		then
+			fingerprint="${file%.rev}"; fingerprint="${fingerprint##*'/'}"
+			#echo "$fingerprint"
+			echo "$fingerprint" >> "${synchronised_dir_fullpath}/${this_host}_revocation_certificates/keypair_fingerprint_list"
+		fi
+	done
+
+	echo && echo "incoming_array HAS NOW BEEN POPULATED WITH REVOCATION CERTS"
+
+	# encrypt whatever we've put in that incoming_array (should normally be just 2 files - the pre and user-generated rev certs)
+	# our encryption script takes care of shredding everything it encrypts!
+	# TODO: THINK... WE COULD ENCRYPT WITH A DIFFERENT KEY - A KEY FOR THIS PURPOSE ONLY?
+
+	echo && echo "JUST ABOUT TO CALL gpg_file_encryption_service ..."
+
+	gpg_file_encryption_service # we can use ANY available private key for this, not just the newly generated one! tell the user!
+	test_result=$?
+
+	if [ $test_result -eq 0 ]
+	then
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION WAS SUCCESSFUL"
+		rev_cert_encrypt_OK=true
+	else
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION FAILED"
+		rev_cert_encrypt_OK=false
+	fi
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	echo "rev_cert_encrypt_OK was set to: $rev_cert_encrypt_OK"
+}
+##########################################################################################################
+# returns 
+function generate_revocation_certificate
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	new_key_rev_cert_OK=false
+	
+	echo "new_key_rev_cert_OK is set to: $new_key_rev_cert_OK"
+
+	# generate a revocation certificate (user-generated) for the new key-pair
+	# for now we'll just hard code for an ascii (the default) format certificate
+
+	# WE KNOW THAT REVOCATION CERTS AND PRIVATE KEYS SHOULD NEVER EXIST ON THE SAME HOST, BUT WHILE REV CERTS DO \
+	# + EXIST ON OUR SYSTEM, WE'LL USE ENCRYPTION AND SHREDDING TO ACHEIVE CONFIDENTIALITY AND INTEGRITY
+
+	# gpg encrypt both user-generated and pre-generated revocation certs in the GnuPG default location	
+	
+	# we first just need to load up incoming_array
+	# we'll also append a list of fingerprints
+
+	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" \
+	--gen-revoke "$user_id"
+	test_result=$?
+
+	if [ $test_result -eq 0 ]
+	then
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE USER-GENERATED REVOCATION CERTIFICATE WAS SUCCESSFUL"
+		new_key_rev_cert_OK=true
+	else
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE USER-GENERATED REVOCATION CERTIFICATE FAILED"
+		new_key_rev_cert_OK=false
+	fi
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	echo "new_key_rev_cert_OK was set to: $new_key_rev_cert_OK"
+}
+##########################################################################################################
+# nothing returned, as no other function depends on the outcome of this task. just print messages.
+function backup_public_keyrings
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	# public keyring backup:
+	for pubkeyring in {"pubring.gpg","pubring.kbx"}
+	do
+
+		# copy old public keyring (each format) from synchronised location to archive location
+		test_file_path_access "${synchronised_dir_fullpath}/${pubkeyring}"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE SYNC'D LOCATION"
+			# rename and archive this existing public keyring
+			mv "${synchronised_dir_fullpath}/${pubkeyring}" \
+			"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive/${pubkeyring}_before.$(date +'%F@%T')"
+			echo && echo "THE EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS RENAMED AND ARCHIVED"
+		else
+			echo && echo "COULDN'T FIND AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING IN THE SYNC'D LOCATION"		
+		fi
+
+		# copy new public keyring (each format) from default location to synchronised location
+		test_file_path_access "$public_keyring_default_directory_fullpath/${pubkeyring}"
+		if [ $? -eq 0 ]
+		then
+			echo && echo "A NEW \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE GnuPG DEFAULT LOCATION"
+			# copy the new version to the sync'd location
+			cp "$public_keyring_default_directory_fullpath/${pubkeyring}" \
+			"${synchronised_dir_fullpath}"
+			echo && echo "THE LATEST \"${pubkeyring}\" PUBLIC KEYRING HAS NOW BEEN COPIED TO THE SYNC'D LOCATION"
+		else
+			echo && echo "COULDN'T FIND A NEW \"${pubkeyring}\" PUBLIC KEYRING IN THE GnuPG DEFAULT LOCATION"		
+		fi
+
+	done
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+}
+##########################################################################################################
+# set the value of the new_keygen_OK global
+function generate_public_keypair
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	#test_uid=$1
+
+	#new_keypair_user_id=
+	new_keygen_OK=false 
+
+	#echo "new_keypair_user_id is set to: $new_keypair_user_id"
+	echo "new_keygen_OK is set to: $new_keygen_OK"
+
+
+	gpg --full-gen-key	
+	test_result=$?
+	
+	if [ $test_result -eq 0 ]
+	then
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE ENCRYPTION WAS SUCCESSFUL"
+		new_keygen_OK=true
+	else
+		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE ENCRYPTION FAILED"
+		new_keygen_OK=false
+	fi
+
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	echo "new_keygen_OK was set to: $new_keygen_OK"
+
+}
+##########################################################################################################
+# returns zero if user-id (or substring of it) already used in public keyring
+function test_uid_in_pub_keyring
+{
+	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+
+	test_result=
+	test_uid=$1
+	
+	echo "test_uid is set to: $test_uid"
+
+	gpg --list-key | grep "$test_uid" &>/dev/null
+	test_result=$?
+
+	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+
+	return "$test_result"
+}
+##########################################################################################################
+# returns zero if 
 function test_email_valid_form
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
@@ -554,7 +764,7 @@ function set_working_user_id
 
 		user_id=""
 
-		echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN:"
+		echo && echo "ENTER THE UNIQUE USER-ID (email address) THAT UR ABOUT TO USE FOR KEY GEN:" && echo
 		read user_id
 		echo && echo "You specified the user-id: $user_id" && echo
 
@@ -569,20 +779,22 @@ function set_working_user_id
 			#break
 		else
 			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
-			continue # just in case we add more code after here
+			continue
 		fi
 
-		# test_uid_in_pub_keyring
-		# uid_in_keyring_result=$?
+		# ensure the user specified email user-id (or substring of it) doesn't already exist in the public keyring
+		test_uid_in_pub_keyring "$user_id"
+		uid_in_keyring_result=$?
 		echo " "
 		
-		if [ $uid_in_keyring_result -eq 0 ]
+		# positive result is bad
+		if [ $uid_in_keyring_result -ne 0 ]
 		then
-			echo && echo "EMAIL ADDRESS \"$user_id\" IS VALID"
+			echo && echo "OK TO USE EMAIL ADDRESS \"$user_id\" "
 			break
 		else
-			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
-			continue # just in case we add more code after here
+			echo && echo "THAT'S A VALID EMAIL ADDRESS, BUT IT'S ALREADY BEING USED :( TRY AGAIN..."
+			continue # just in case we add more code after this block
 		fi
 
 	done
@@ -597,123 +809,94 @@ function generate_and_manage_keys
 {
 	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 	
-
+	
 	set_working_user_id
+
+	##############################################
 
 	echo && echo "[1] EMAIL ADDRESS USER ID VALIDATION COMPLETE... MOVING ON TO KEY GENERATION ...WAIT" && echo
 	sleep 12
-
-
-	# generate the new public key-pair
-	gpg --full-gen-key	
-
-	###########
-	## TEST FOR: ###########         :::::::        SUCCESSFUL GENERATION OF NEW KEYPAIR
-	###########
-
-
-	echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES...WAIT" && echo
-	sleep 12
-
-
-	# public keyring backup:
-	for pubkeyring in {"pubring.gpg","pubring.kbx"}
-	do
-
-		# copy public keyring (each format) to the archived location
-		test_file_path_access "${synchronised_dir_fullpath}/${pubkeyring}"
-		if [ $? -eq 0 ]
-		then
-			echo && echo "AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE SYNC'D LOCATION"
-			# rename and archive this existing public keyring
-			mv "${synchronised_dir_fullpath}/${pubkeyring}" \
-			"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive/${pubkeyring}_before.$(date +'%F@%T')"
-			echo && echo "THE EXISTING \"${pubkeyring}\" PUBLIC KEYRING WAS RENAMED AND ARCHIVED"
-		else
-			echo && echo "COULDN'T FIND AN EXISTING \"${pubkeyring}\" PUBLIC KEYRING IN THE SYNC'D LOCATION"		
-		fi
-
-		# copy public keyring (each format) to the synchronised location
-		test_file_path_access "$public_keyring_default_directory_fullpath/${pubkeyring}"
-		if [ $? -eq 0 ]
-		then
-			echo && echo "A NEW \"${pubkeyring}\" PUBLIC KEYRING WAS FOUND IN THE GnuPG DEFAULT LOCATION"
-			# copy the new version to the sync'd location
-			cp "$public_keyring_default_directory_fullpath/${pubkeyring}" \
-			"${synchronised_dir_fullpath}"
-			echo && echo "THE LATEST \"${pubkeyring}\" PUBLIC KEYRING HAS NOW BEEN COPIED TO THE SYNC'D LOCATION"
-		else
-			echo && echo "COULDN'T FIND A NEW \"${pubkeyring}\" PUBLIC KEYRING IN THE GnuPG DEFAULT LOCATION"		
-		fi
-
-	done
-
-
-	## PAUSE HERE TO SAY KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO...
-	echo && echo "[3] KEYRING BACKUP ACTIVITIES COMPLETE... MOVING ON TO REVOCATION CERT. GENERATION...WAIT" && echo
-	sleep 12
-
-
-
-	# generate a revocation certificate (user-generated) for the new key-pair
-	# for now we'll just hard code for an ascii (the default) format certificate
-
-	# WE KNOW THAT REVOCATION CERTS AND PRIVATE KEYS SHOULD NEVER EXIST ON THE SAME HOST, BUT WHILE REV CERTS DO \
-	# + EXIST ON OUR SYSTEM, WE'LL USE ENCRYPTION AND SHREDDING TO ACHEIVE CONFIDENTIALITY AND INTEGRITY
-
-	# gpg encrypt both user-generated and pre-generated revocation certs in the sync'd location	
 	
-	# we first just need to load up incoming_array
-	# we'll also append a list of fingerprints
+	generate_public_keypair
 
-	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" \
-	--gen-revoke "$user_id"
-	echo && echo "A USER-GENERATED REVOCATION CERT. HAS NOW BEEN ADDED TO THE DEFAULT GNUPG REVOC DIRECTORY"
+	##############################################
 
-
-
-	echo && echo "[4] REVOCATION CERT. GENERATION NOW COMPLETE... MOVING ON TO REVOCATION CERT. ENCRYPTION...WAIT" && echo
-	sleep 12
-
-
-	touch "${synchronised_dir_fullpath}/${this_host}_revocation_certificates/keypair_fingerprint_list"
-
-	for file in "${revocation_certificate_default_directory_fullpath}"/*
-	do
-		incoming_array+=( "${file}" )
-		#echo $file
-		if [[ $file =~ .rev$ ]]
-		then
-			fingerprint="${file%.rev}"; fingerprint="${fingerprint##*'/'}"
-			#echo "$fingerprint"
-			echo "$fingerprint" >> "${synchronised_dir_fullpath}/${this_host}_revocation_certificates/keypair_fingerprint_list"
-
-		fi
-	done
-
-	echo && echo "incoming_array HAS NOW BEEN POPULATED WITH REVOCATION CERTS"
-
-	# encrypt whatever we've put in that incoming_array (should normally be just 2 files - the pre and user-generated rev certs)
-	# our encryption script takes care of shredding everything it encrypts!
-	# TODO: THINK... WE COULD ENCRYPT WITH A DIFFERENT KEY - A KEY FOR THIS PURPOSE ONLY?
-
-	echo && echo "JUST ABOUT TO CALL gpg_file_encryption_service ..."
-
-	gpg_file_encryption_service # we can use ANY available private key for this, not just the newly generated one! tell the user!
-	# result_code=$?
-
-	echo && echo "JUST RETURNED FROM gpg_file_encryption_service ..."
-
-
-
-	echo && echo "[5] REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REVOCATION CERT. RENAME AND MOVE...WAIT" && echo
-	sleep 12
-
-
-	# rename all encrypted revocation certificates to the sync'd location
-	mv "$revocation_certificate_default_directory_fullpath"/* "${synchronised_dir_fullpath}/${this_host}_revocation_certificates"
+	if [ $new_keygen_OK = true ]
+	then
+		echo && echo "[2] KEY GENERATION COMPLETE... MOVING ON TO KEYRING BACKUP ACTIVITIES...WAIT" && echo
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
 	
-	echo && echo "NEWLY ENCRYPTED REVOCATION CERTS. NOW ALL (BOTH) MOVED TO THE SYNC'D LOCATION"
+	backup_public_keyrings
+
+	##############################################
+
+	if [ $new_keygen_OK = true ]
+	then
+		echo && echo "[3] KEYRING BACKUP ACTIVITIES PRESUMED COMPLETE... MOVING ON TO REVOCATION CERT. GENERATION...WAIT" && echo
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
+
+	generate_revocation_certificate
+
+	##############################################
+
+	if [ $new_key_rev_cert_OK = true ]
+	then
+		echo && echo "[4] USER-GENERATED REVOCATION CERT. ACTIVITIES COMPLETE... MOVING ON TO REVOCATION CERT. ENCRYPTION...WAIT" && echo
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION...WAIT" && echo && sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
+	
+	encrypt_revocation_certificates
+
+	##############################################
+
+	if [ $rev_cert_encrypt_OK = true ]
+	then
+		echo && echo "[5] REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO REVOCATION CERT. RENAME AND MOVE...WAIT" && echo
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION...WAIT" && echo && sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
+
+	rename_and_move_revocation_certificates
+
+	##############################################
+
+	echo && echo "[5] ENCRYPTED REVOCATION CERT. ENCRYPTION (INCLUDING SHRED) NOW COMPLETE... MOVING ON TO PUBLIC KEYS EXPORT...WAIT" && echo
+	echo && echo "[5] KNOWN DEPENDENCIES: "
+	echo "1. KEY GENERATION"
+	echo "2. user_id" 
+
+	if [ $new_keygen_OK = true ]
+	then
+		echo && echo "[5] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo		
+		sleep 12
+	else
+		# exit, as nothing further can be done
+		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION...WAIT" && echo && sleep 4
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi
+
+	export_public_keys
+
+	##############################################
+
+
 
 
 
@@ -1650,9 +1833,9 @@ function get_required_service
 		echo
 		echo ">>>   :::   OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
 		echo
-		echo ">>>   IMPORTING public keys into keyrings"
-		echo ">>>   SIGNING of imported keys using our private keys"
-		echo ">>>   ...."
+		echo ">>>   [NULL] = IMPORTING public keys into keyrings"
+		echo ">>>   [NULL] = SIGNING of imported keys using our private keys"
+		echo ">>>   [NULL] = ...."
 		echo
 
 		read service_option
@@ -1737,7 +1920,7 @@ function get_config_file_to_use
 	echo
 	echo ":::   [ USING THE DEFAULT CONFIGURATION FILE ]   :::"
 	echo
-	sleep 4
+	sleep 2
 }
 ###############################################################################################
 
