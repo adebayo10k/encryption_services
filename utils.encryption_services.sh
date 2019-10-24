@@ -417,6 +417,7 @@ fi
 
 # 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
 #    +ALREADY EXIST, AND IF NOT, CREATE THEM:
+# TODO:  # mkdir -p // no error if exists (idempotent), make parents structure /a/b/c as needed MAY BE MORE EFFICIENT
 
 synchronised_dir_fullpath="${synchronised_location_holding_dir_fullpath}/${this_host}_gpg"
 echo && echo "synchronised_dir_fullpath variable now set to: $synchronised_dir_fullpath"
