@@ -517,7 +517,7 @@ echo "encryption_services exit code: $?"
 # returns 
 function export_public_keys
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	public_key_export_OK=false
@@ -538,7 +538,7 @@ function export_public_keys
 		public_key_export_OK=false
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "public_key_export_OK was set to: $public_key_export_OK"
 }
@@ -546,7 +546,7 @@ function export_public_keys
 # returns 
 function rename_and_move_revocation_certificates
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	rev_certs_moved_OK=false
@@ -566,7 +566,7 @@ function rename_and_move_revocation_certificates
 		rev_certs_moved_OK=false
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "rev_certs_moved_OK was set to: $rev_certs_moved_OK"
 }
@@ -574,7 +574,7 @@ function rename_and_move_revocation_certificates
 # returns 
 function encrypt_revocation_certificates
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	rev_cert_encrypt_OK=false
@@ -615,7 +615,7 @@ function encrypt_revocation_certificates
 		rev_cert_encrypt_OK=false
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "rev_cert_encrypt_OK was set to: $rev_cert_encrypt_OK"
 }
@@ -623,7 +623,7 @@ function encrypt_revocation_certificates
 # returns 
 function generate_revocation_certificate
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	new_key_rev_cert_OK=false
@@ -654,7 +654,7 @@ function generate_revocation_certificate
 		new_key_rev_cert_OK=false
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "new_key_rev_cert_OK was set to: $new_key_rev_cert_OK"
 }
@@ -662,7 +662,7 @@ function generate_revocation_certificate
 # nothing returned, as no other function depends on the outcome of this task. just print messages.
 function backup_public_keyrings
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# public keyring backup:
 	for pubkeyring in {"pubring.gpg","pubring.kbx"}
@@ -696,14 +696,14 @@ function backup_public_keyrings
 
 	done
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 ##########################################################################################################
 # set the value of the new_keygen_OK global
 function generate_public_keypair
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	#test_uid=$1
@@ -728,7 +728,7 @@ function generate_public_keypair
 	fi
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "new_keygen_OK was set to: $new_keygen_OK"
 
@@ -737,7 +737,7 @@ function generate_public_keypair
 # returns zero if user-id (or substring of it) already used in public keyring
 function test_uid_in_pub_keyring
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	test_uid=$1
@@ -747,7 +747,7 @@ function test_uid_in_pub_keyring
 	gpg --list-key | grep "$test_uid" &>/dev/null
 	test_result=$?
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
 }
@@ -755,7 +755,7 @@ function test_uid_in_pub_keyring
 # returns zero if 
 function test_email_valid_form
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	test_email=$1
@@ -774,7 +774,7 @@ function test_email_valid_form
 	fi 
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
 }
@@ -782,7 +782,7 @@ function test_email_valid_form
 function set_working_user_id
 {
 
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# in order for script to use a variable (user_id) when creating certificate revocation and public key export commands, \
 	# we now assign an identifying email address to the global user_id variable:
@@ -829,14 +829,14 @@ function set_working_user_id
 	done
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
 ###############################################################################################
 function generate_and_manage_keys
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 	
 	
 	set_working_user_id
@@ -999,7 +999,7 @@ function generate_and_manage_keys
 	##############################################
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
 ###############################################################################################
@@ -1008,7 +1008,7 @@ function generate_and_manage_keys
 # 
 function verify_file_shred_results
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 
 	# :
@@ -1028,7 +1028,7 @@ function verify_file_shred_results
 	done
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1036,7 +1036,7 @@ function verify_file_shred_results
 # standard procedure once encrypted versions exits: remove the plaintext versions!
 function shred_plaintext_files
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 
 	echo "OK TO SHRED THE FOLLOWING PLAINTEXT FILE(S)?..." && echo
@@ -1056,7 +1056,7 @@ function shred_plaintext_files
 		sudo shred -n 1 -ufv "${valid_path}"	
 	done
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
 ###############################################################################################
@@ -1065,7 +1065,7 @@ function shred_plaintext_files
 # 
 function verify_file_encryption_results
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	valid_path="$1"
 
@@ -1100,7 +1100,7 @@ function verify_file_encryption_results
 	fi
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return 0
 }
@@ -1110,7 +1110,7 @@ function verify_file_encryption_results
 #
 function execute_file_specific_encryption_command
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	valid_path="$1"
 
@@ -1130,7 +1130,7 @@ function execute_file_specific_encryption_command
 	bash -c "$file_specific_command"
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1138,7 +1138,7 @@ function execute_file_specific_encryption_command
 # this function called if encryption_system="symmetric"
 function create_generic_symmetric_key_encryption_command_string
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
 
@@ -1160,14 +1160,14 @@ function create_generic_symmetric_key_encryption_command_string
 
 	echo "$generic_command"
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 ###############################################################################################
 # this function called if encryption_system="public_key"
 function create_generic_pub_key_encryption_command_string
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
 
@@ -1197,7 +1197,7 @@ function create_generic_pub_key_encryption_command_string
 
 	echo "$generic_command"
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1206,7 +1206,7 @@ function create_generic_pub_key_encryption_command_string
 
 function get_recipient_uid
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	while true
 	do
@@ -1254,14 +1254,14 @@ function get_recipient_uid
 	done
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
 ###############################################################################################
 # 
 function get_sender_uid
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 
 	while true
@@ -1290,14 +1290,14 @@ function get_sender_uid
 	done
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
 ###############################################################################################
 #
 function set_defaults
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	encryption_system="public_key" #default
 	output_file_format="ascii" #default
@@ -1327,7 +1327,7 @@ function set_defaults
 	fi	
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1338,7 +1338,7 @@ function set_defaults
 # MIGHT AS WELL ENUMERATE THE 4 POSSIBLE COMBINATIONS IN AN OPTION LIST! - (WITH A DEFAULT ASSUMED)
 function set_file_encryption_mode # 
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	while true
 	do
@@ -1380,7 +1380,7 @@ function set_file_encryption_mode #
 	done
 
 	echo
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1390,7 +1390,7 @@ function set_file_encryption_mode #
 # test that valid, ultimate trust fingerprint exists for that user-id
 function check_gpg_user_keys
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	userid=""
 
@@ -1416,7 +1416,7 @@ function check_gpg_user_keys
 		exit $E_REQUIRED_PROGRAM_NOT_FOUND
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1501,7 +1501,7 @@ function gpg_file_encryption_service
 function check_encryption_platform
 {
 		
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	bash -c "which gpg 2>/dev/null" # suppress stderr (but not stdout for now)
 	if [ $? -eq 0 ]
@@ -1515,7 +1515,7 @@ function check_encryption_platform
 	fi
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1526,7 +1526,7 @@ function check_encryption_platform
 function sanitise_absolute_path_value ##
 {
 
-echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# sanitise values
 	# - trim leading and trailing space characters
@@ -1539,12 +1539,15 @@ echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 	test_line=${test_line##[[:blank:]]}
 
 	# TRIM TRAILING / FOR ABSOLUTE PATHS:
-	test_line=${test_line%'/'}
-	#test_line=${test_line%\/}
+    while [[ "$test_line" == *'/' ]]
+    do
+        echo "FOUND ENDING SLASH"
+        test_line=${test_line%'/'}
+    done 
 
 	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
 
-echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1555,7 +1558,7 @@ echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 function test_and_set_line_type
 {
 
-#echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+#echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# TODO: ADD ANOTHER CONFIG FILE VALIDATION TEST:
 	# TEST THAT THE LINE FOLLOWING A VARIABLE= ALPHANUM STRING MUST BE A VALUE/ ALPHANUM STRING, ELSE FAIL
@@ -1596,7 +1599,7 @@ function test_and_set_line_type
 		exit $E_UNEXPECTED_BRANCH_ENTERED
 	fi
 
-#echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1605,7 +1608,7 @@ function test_and_set_line_type
 function get_synchronised_location_holding_dir_fullpath_config
 {
 
-echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	keyword="synchronised_location_holding_dir_fullpath="
 	line_type=""
@@ -1659,7 +1662,7 @@ echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 
-echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1668,7 +1671,7 @@ echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 function get_public_keyring_default_directory_fullpath_config
 {
 
-echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	keyword="public_keyring_default_directory_fullpath="
 	line_type=""
@@ -1722,7 +1725,7 @@ echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 
-echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1731,7 +1734,7 @@ echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 function get_revocation_certificate_default_directory_fullpath_config
 {
 
-echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	keyword="revocation_certificate_default_directory_fullpath="
 	line_type=""
@@ -1785,7 +1788,7 @@ echo && echo "Entered into function ${FUNCNAME[0]}" && echo
 	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 
-echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -1797,7 +1800,7 @@ echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
 # 
 function test_file_path_valid_form
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	test_file_fullpath=$1
@@ -1817,7 +1820,7 @@ function test_file_path_valid_form
 	fi 
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
 }
@@ -1827,7 +1830,7 @@ function test_file_path_valid_form
 # 
 function test_file_path_access
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	test_file_fullpath=$1
@@ -1847,7 +1850,7 @@ function test_file_path_access
 		return $E_REQUIRED_FILE_NOT_FOUND
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
 }
@@ -1856,7 +1859,7 @@ function test_file_path_access
 # # TODO: DO WE NEED ANOTHER TEST FOR PERMISSION TO WRITE TO DIRECTORY?
 function test_dir_path_access
 {
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
 	test_dir_fullpath=$1
@@ -1875,7 +1878,7 @@ function test_dir_path_access
 		return $E_REQUIRED_FILE_NOT_FOUND
 	fi
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
 }
@@ -1887,7 +1890,7 @@ function test_dir_path_access
 function get_required_service
 {
 	
-	echo && echo "Entered into function ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	
 	while true
@@ -1914,7 +1917,7 @@ function get_required_service
 		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
 		echo
 		echo
-		echo ">>>   :::   OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
+		echo ">>>   :::   THE FOLLOWING OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
 		echo
 		echo ">>>   [NULL] = IMPORTING public keys into keyrings"
 		echo ">>>   [NULL] = SIGNING of imported keys using our private keys"
@@ -1989,7 +1992,7 @@ function get_required_service
 	done
 
 
-	echo && echo "Leaving from function ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
