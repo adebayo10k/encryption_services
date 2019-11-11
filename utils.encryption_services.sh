@@ -15,9 +15,34 @@
 function main
 {
 
-echo "USAGE: $(basename $0) <file paths>" # zero or more strings (representing fullpaths to files)
-## at command line:~# 
-##
+echo "USAGE: $(basename $0) [<file paths>]" # zero or more strings (representing fullpaths to files)
+
+#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
+# might also be useful to validate that no parameters were given from the command line.
+# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
+
+echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
+
+# Display a program header and give user option to leave if here in error:
+echo
+echo -e "		\033[33m===================================================================\033[0m";
+echo -e "		\033[33m||                Welcome to ENCRYPTION SERVICES                  ||  author: adebayo10k\033[0m";  
+echo -e "		\033[33m===================================================================\033[0m";
+echo
+echo " Type q to quit NOW, or press ENTER to continue."
+echo && sleep 1
+
+# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
+read last_chance
+case $last_chance in 
+[qQ])	echo
+		echo "Goodbye!" && sleep 1
+		exit 0
+			;;
+*) 		echo "You're IN..." && echo && sleep 1
+	 		;;
+esac 
+
 
 ## EXIT CODES:
 E_UNEXPECTED_BRANCH_ENTERED=10
@@ -97,18 +122,6 @@ new_key_rev_cert_OK=
 rev_cert_encrypt_OK=
 rev_certs_moved_OK=
 public_key_export_OK=
-
-
-#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
-# might also be useful to validate that no parameters were given from the command line.
-# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
-
-echo "	==================================================================="
-echo "	||                Welcome to ENCRYPTION SERVICES                   ||  author: adebayo10k"  
-echo "	==================================================================="
-echo
-echo " Type q to quit."
-echo && #sleep 2
 
 ###############################################################################################
 
