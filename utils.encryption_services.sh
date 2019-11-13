@@ -13,420 +13,170 @@
 ##
 
 function main
-{
-
-echo "USAGE: $(basename $0) [<file paths>]" # zero or more strings (representing fullpaths to files)
-
-#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
-# might also be useful to validate that no parameters were given from the command line.
-# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
-
-echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
-
-# Display a program header and give user option to leave if here in error:
-echo
-echo -e "		\033[33m===================================================================\033[0m";
-echo -e "		\033[33m||                Welcome to ENCRYPTION SERVICES                  ||  author: adebayo10k\033[0m";  
-echo -e "		\033[33m===================================================================\033[0m";
-echo
-echo " Type q to quit NOW, or press ENTER to continue."
-echo && sleep 1
-
-# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
-read last_chance
-case $last_chance in 
-[qQ])	echo
-		echo "Goodbye!" && sleep 1
-		exit 0
-			;;
-*) 		echo "You're IN..." && echo && sleep 1
-	 		;;
-esac 
-
-
-## EXIT CODES:
-E_UNEXPECTED_BRANCH_ENTERED=10
-E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
-E_INCORRECT_NUMBER_OF_ARGS=12
-E_UNEXPECTED_ARG_VALUE=13
-E_REQUIRED_FILE_NOT_FOUND=20
-E_REQUIRED_PROGRAM_NOT_FOUND=21
-E_UNKNOWN_RUN_MODE=30
-E_UNKNOWN_EXECUTION_MODE=31
-
-export E_UNEXPECTED_BRANCH_ENTERED
-export E_OUT_OF_BOUNDS_BRANCH_ENTERED
-export E_INCORRECT_NUMBER_OF_ARGS
-export E_UNEXPECTED_ARG_VALUE
-export E_REQUIRED_FILE_NOT_FOUND
-export E_REQUIRED_PROGRAM_NOT_FOUND
-export E_UNKNOWN_RUN_MODE
-export E_UNKNOWN_EXECUTION_MODE
-
-#################################
-
-# GLOBAL VARIABLE DECLARATIONS:
-
-config_file_fullpath= # a full path to a file
-line_type="" # global...
-test_line="" # global...
-
-service_index= # service number of selected service
-
-declare -a incoming_array=()
-
-################################################
-# independent variables
-encryption_system= # public_key | symmetric_key
-output_file_format= # ascii | binary
-
-# dependent variables
-encryption_system_option= # --encrypt | --symmetric
-output_file_extension= # .asc | .gpg
-
-armor_option='--armor'
-sender_option='--local-user'
-recipient_option='--recipient'
-sender_uid=""
-recipient_uid=""
-declare -a recipient_uid_list=()
-################################################
-
-gpg_command='gpg'
-output_option='--output'
-file_path_placeholder='<filepath_placeholder>'
-
-generic_command=""
-file_specific_command=""
-
-plaintext_file_fullpath=""
-plaintext_dir_fullpath=""
-
-abs_filepath_regex='^(/{1}[A-Za-z0-9\._-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
-all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
-email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
-# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
-# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
-
-synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
-public_keyring_default_directory_fullpath=
-revocation_certificate_default_directory_fullpath=
-
-this_host=$(hostname) #
-synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath (only written to by this_host)
-declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
-
-
-new_keygen_OK=
-new_key_rev_cert_OK=
-rev_cert_encrypt_OK=
-rev_certs_moved_OK=
-public_key_export_OK=
-
-###############################################################################################
-
-
-# SET THE SCRIPT ROOT DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
-
-# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
-echo "The absolute path to this script is: $0"
-
-## TODO: UNLESS SCRIPT 'SOMEHOW' SITS IN THE ROOT DIRECTORY, IN WHICH CASE WE'D JUST REMOVE "$(basename $0)"
-## remove from end of full path to script: a directory delimiter and the basename
-script_root_dir="${0%'/'"$(basename $0)"}"  
-echo "Script root directory set to: $script_root_dir"
-export script_root_dir
-
-#entry_test
-#
-#	case $requested_mount_dir in
-#	"not_yet_set")	read_fs_to_mount ## script was called without params, so from cmd line
-#					;;
-#	*) 				echo "requested directory passed into mount_ecrypt_dirs ok" && sleep 1 && echo
-#					echo "requested directory is $requested_mount_dir" && sleep 1 && echo
-#					query_fs_to_mount "$requested_mount_dir"
-#					;;
-#	esac 
-#
-#	#unset $requested_mount_dir
-
-
-echo "ON ENTRY, script_root_dir WAS SET TO: $script_root_dir"
-echo "YOUR CURRENT SHELL LEVEL IS: $SHLVL"
-
-read
-
-#######################################################################
-###############################################################################################
-
-echo
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "STARTING THE 'MAIN SECTION' in script $(basename $0)"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo
-
-###############################################################################################
-# VVVV CODE THAT ALWAYS RUNS WHEN SCRIPT IS CALLED: VVVV
-###############################################################################################
-
-# 1. DETERMINE HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
-number_of_incoming_params=$#
-
-echo "Number of arguments passed in = $number_of_incoming_params"
-
-# 2. VERIFY NUMBER OF PARAMS (MUST BE FILE PATHS) && 3. TEST THAT INCOMING STRINGS ARE ALL VALID AND ACCESSIBLE FILE PATHS:
-
-# put the incoming data into an array 
-if [ $number_of_incoming_params -gt 0 ]
-then
-	incoming_array=( "$@" )
-
-	# temporary debug check
-	for incoming_string in "${incoming_array[@]}"
-	do
-		echo "$incoming_string"
-	done
-
-	for incoming_string in "${incoming_array[@]}"
-	do
-		echo "incoming string is now: $incoming_string"
-		test_file_path_valid_form "$incoming_string"
-		if [ $? -eq 0 ]
-		then
-			# from now on, we can talk about a plaintext file path...
-			plaintext_file_fullpath="$incoming_string"
-			echo "The full path to the plaintext file is: $plaintext_file_fullpath"
-
-			## ASSUMING THE FILE IS NOT 'SOMEHOW' SITTING IN THE ROOT DIRECTORY
-			plaintext_dir_fullpath=${plaintext_file_fullpath%/*}
-			#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
-			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
-		else
-			echo "The valid form test FAILED and returned: $?"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_UNEXPECTED_ARG_VALUE
-		fi	
-
-		# if the above test returns ok, plaintext_file_fullpath and plaintext_dir_fullpath are now set
-		test_file_path_access "$plaintext_file_fullpath"
-		if [ $? -eq 0 ]
-		then
-			echo "The full path to the plaintext file is: $plaintext_file_fullpath"
-		else
-			echo "The file path access test FAILED and returned: $?"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
-		fi	
-
-		test_dir_path_access "$plaintext_dir_fullpath"
-		if [ $? -eq 0 ]
-		then
-			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
-		else
-			echo "The directory path access test FAILED and returned: $?"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
-		fi
-
-	done
-
-fi
-
-# 3. GET WHICH CONFIGURATION FILE SCRIPT WILL READ FROM AND TEST THAT IT CAN BE ACCESSED AND READ OK
-
-echo
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "STARTING THE 'SET PATH TO CONFIGURATION FILE' PHASE in script $(basename $0)"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo
-
-get_config_file_to_use
-unset user_config_file_fullpath
-
-config_file_fullpath=${user_config_file_fullpath:-"default_config_file"}
-
-if [ "$config_file_fullpath" == "default_config_file" ]
-then
-	config_file_name="encryption_services_config"
-	echo "Our configuration filename is set to: $config_file_name" && echo
-
-	#config_dir_fullpath="$(cd $script_dir_fullpath; cd ../; pwd)" ## returns with no trailing /
-	config_dir_fullpath="/etc"
-	echo "PROVISIONALLY:Our configuration file sits in: $config_dir_fullpath" && echo
-
-	config_file_fullpath="${config_dir_fullpath}/${config_file_name}"
-	echo "PROVISIONALLY:The full path to our configuration file is: $config_file_fullpath" && echo
-
-elif [ "$config_file_fullpath" == "$user_config_file_fullpath" ]
-then
-	config_dir_fullpath="${user_config_file_fullpath%'/'*}" # also, try [[:alphanum:]] or [A-Za-z0-9_-]
-	echo "PROVISIONALLY:Our configuration file sits in: $config_dir_fullpath" && echo
-
-	config_file_fullpath="$user_config_file_fullpath"
-	echo "PROVISIONALLY:The full path to our configuration file is: $config_file_fullpath" && echo
-	#exit 0
-
-else
-	echo "path to configuration file set to: $config_file_fullpath so I QUIT"
-	echo "failsafe exit. Unable to set up a configuration file" && sleep 2
-	echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-	exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
-
-fi
-
-# WHICHEVER WAY THE CONFIGURATION FILE PATH WAS JUST SET, WE NOW TEST THAT IT IS VALID AND WELL-FORMED:
-
-test_file_path_valid_form "$config_file_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "Configuration file full path is of VALID FORM"
-else
-	echo "The valid form test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_UNEXPECTED_ARG_VALUE
-fi	
-
-# if the above test returns ok, ...
-test_file_path_access "$config_file_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "The full path to the CONFIGURATION FILE is: $config_file_fullpath"
-else
-	echo "The CONFIGURATION FILE path access test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_REQUIRED_FILE_NOT_FOUND
-fi
-
-test_dir_path_access "$config_dir_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "The full path to the CONFIGURATION FILE holding directory is: $config_dir_fullpath"
-else
-	echo "The CONFIGURATION DIRECTORY path access test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_REQUIRED_FILE_NOT_FOUND
-fi	
-
-
-# 3. TEST WHETHER THE CONFIGURATION FILES' CONTENT FORMAT IS VALID
-while read lineIn
-do
-	test_and_set_line_type "$lineIn" 
-
-done < "$config_file_fullpath" 
-
-echo "return code after line tests: $?" && echo
-
-## TODO: if $? -eq 0 ... ANY POINT IN BRINGING BACK A RETURN CODE?
-
-# if tests passed, configuration file is accepted and used from here on
-echo "WE CAN USE THIS CONFIGURATION FILE" && echo
-export config_file_name
-export config_dir_fullpath
-export config_file_fullpath
-
-
-# 4. IMPORT CONFIGURATION INTO VARIABLES
-
-echo
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "STARTING THE 'IMPORT CONFIGURATION INTO VARIABLES' PHASE in script $(basename $0)"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo
-
-#TODO: CAN ALL THESE BE DONE IN ONE FUNCTION LATER?, ANYWAY... KEEP IT SIMPLE FOR NOW
-# SINGLE FUNCTION WOULD STORE EACH keyword IN AN ARRAY, WHICH WE'D LOOP THROUGH FOR EACH LINE READ
-# visualise it again!
-get_synchronised_location_holding_dir_fullpath_config # should this be named set..?.
-get_public_keyring_default_directory_fullpath_config # should this be named set..?.
-get_revocation_certificate_default_directory_fullpath_config # should this be named set..?.
-
-
-# NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
-# REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
-# debug printouts:
-echo
-echo "FINALLY, synchronised_location_holding_dir_fullpath variable now set to: \
-$synchronised_location_holding_dir_fullpath" && echo
-
-# this valid form test works for sanitised directory paths too
-test_file_path_valid_form "$synchronised_location_holding_dir_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY PATH IS OF VALID FORM"
-else
-	echo "The valid form test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_UNEXPECTED_ARG_VALUE
-fi	
-
-# if the above test returns ok, ...
-test_dir_path_access "$synchronised_location_holding_dir_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "The full path to the SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY is: \
-	$synchronised_location_holding_dir_fullpath"
-else
-	echo "The SYNCHRONISED LOCATION HOLDING (PARENT) DIRECTORY path access test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_REQUIRED_FILE_NOT_FOUND
-fi	
-
-# NEXT...
-
-echo "FINALLY, public_keyring_default_directory_fullpath variable now set to: \
-$public_keyring_default_directory_fullpath" && echo
-
-# this valid form test works for sanitised directory paths too
-test_file_path_valid_form "$public_keyring_default_directory_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "PUBLIC KEYRING DEFAULT DIRECTORY PATH IS OF VALID FORM"
-else
-	echo "The valid form test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_UNEXPECTED_ARG_VALUE
-fi	
-
-# if the above test returns ok, ...
-test_dir_path_access "$public_keyring_default_directory_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "The full path to the PUBLIC KEYRING DEFAULT DIRECTORY is: \
-	$public_keyring_default_directory_fullpath"
-else
-	echo "The PUBLIC KEYRING DEFAULT DIRECTORY path access test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_REQUIRED_FILE_NOT_FOUND
-fi	
-
-# NEXT...
-
-echo "FINALLY, revocation_certificate_default_directory_fullpath variable now set to: \
-$revocation_certificate_default_directory_fullpath" && echo
-
-# this valid form test works for sanitised directory paths too
-test_file_path_valid_form "$revocation_certificate_default_directory_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "REVOCATION CERTIFICATE DEFAULT DIRECTORY PATH IS OF VALID FORM"
-else
-	echo "The valid form test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_UNEXPECTED_ARG_VALUE
-fi	
-
-# if the above test returns ok, ...
-test_dir_path_access "$revocation_certificate_default_directory_fullpath"
-if [ $? -eq 0 ]
-then
-	echo "The full path to the REVOCATION CERTIFICATE DEFAULT DIRECTORY is: \
-	$revocation_certificate_default_directory_fullpath"
-else
-	echo "The REVOCATION CERTIFICATE DEFAULT DIRECTORY path access test FAILED and returned: $?"
-	echo "Nothing to do now, but to exit..." && echo
-	exit $E_REQUIRED_FILE_NOT_FOUND
-fi	
+{	
+	echo "USAGE: $(basename $0) [<file paths>]" # zero or more strings (representing fullpaths to files)
+
+	#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
+	# might also be useful to validate that no parameters were given from the command line.
+	# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
+
+	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
+
+	# Display a program header and give user option to leave if here in error:
+	echo
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo -e "		\033[33m||                Welcome to ENCRYPTION SERVICES                  ||  author: adebayo10k\033[0m";  
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo
+	echo " Type q to quit NOW, or press ENTER to continue."
+	echo && sleep 1
+
+	# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
+	read last_chance
+	case $last_chance in 
+	[qQ])	echo
+			echo "Goodbye!" && sleep 1
+			exit 0
+				;;
+	*) 		echo "You're IN..." && echo && sleep 1
+				;;
+	esac 
+		
+	## EXIT CODES:
+	E_UNEXPECTED_BRANCH_ENTERED=10
+	E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
+	E_INCORRECT_NUMBER_OF_ARGS=12
+	E_UNEXPECTED_ARG_VALUE=13
+	E_REQUIRED_FILE_NOT_FOUND=20
+	E_REQUIRED_PROGRAM_NOT_FOUND=21
+	E_UNKNOWN_RUN_MODE=30
+	E_UNKNOWN_EXECUTION_MODE=31
+
+	export E_UNEXPECTED_BRANCH_ENTERED
+	export E_OUT_OF_BOUNDS_BRANCH_ENTERED
+	export E_INCORRECT_NUMBER_OF_ARGS
+	export E_UNEXPECTED_ARG_VALUE
+	export E_REQUIRED_FILE_NOT_FOUND
+	export E_REQUIRED_PROGRAM_NOT_FOUND
+	export E_UNKNOWN_RUN_MODE
+	export E_UNKNOWN_EXECUTION_MODE
+
+	###############################################################################################
+
+	# GLOBAL VARIABLE DECLARATIONS:
+
+	config_file_fullpath= # a full path to a file
+	line_type="" # global...
+	test_line="" # global...
+
+	service_index= # service number of selected service
+
+	declare -a incoming_array=()
+
+	################################################
+
+	# independent variables
+	encryption_system= # public_key | symmetric_key
+	output_file_format= # ascii | binary
+
+	# dependent variables
+	encryption_system_option= # --encrypt | --symmetric
+	output_file_extension= # .asc | .gpg
+
+	armor_option='--armor'
+	sender_option='--local-user'
+	recipient_option='--recipient'
+	sender_uid=""
+	recipient_uid=""
+	declare -a recipient_uid_list=()
+
+	################################################
+
+	gpg_command='gpg'
+	output_option='--output'
+	file_path_placeholder='<filepath_placeholder>'
+
+	generic_command=""
+	file_specific_command=""
+
+	plaintext_file_fullpath=""
+	plaintext_dir_fullpath=""
+
+    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
+	all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
+	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
+	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
+	# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
+
+	synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
+	public_keyring_default_directory_fullpath=
+	revocation_certificate_default_directory_fullpath=
+
+	this_host=$(hostname) #
+	synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath (only written to by this_host)
+	declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
+
+	new_keygen_OK=
+	new_key_rev_cert_OK=
+	rev_cert_encrypt_OK=
+	rev_certs_moved_OK=
+	public_key_export_OK=
+
+	##################################################
+
+	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
+	# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
+	echo "The absolute path to this script is: $0"
+	## UNLESS SCRIPT 'SOMEHOW' SITS IN THE ROOT DIRECTORY, IN WHICH CASE WE'D JUST REMOVE "$(basename $0)"
+	## remove from end of full path to script:
+	# 1. a directory delimiter
+	# 2. the basename (or everything following the delimiter)
+	#script_root_dir="${0%'/'"$(basename $0)"}"
+	script_root_dir="${0%'/'*}" 
+	echo "Script root directory set to: $script_root_dir"
+	export script_root_dir
+	
+
+	###############################################################################################
+
+	echo
+	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+	echo "STARTING THE \"VALIDATE ARGS PASSED TO SCRIPT\" SECTION in script $(basename $0)"
+	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+	echo
+
+	read
+
+	#
+	# 1. SET HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
+	number_of_incoming_params=$#
+	echo "Number of arguments passed in = $number_of_incoming_params"
+
+	# if one or more args put them into an array 
+	if [ $number_of_incoming_params -gt 0 ]
+	then
+		incoming_array=( "$@" )
+		verify_program_args		
+	fi
+
+	config_file_fullpath="/etc/encryption_services_config"
+
+	echo "Opening your editor now..." && echo && sleep 2
+    sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    # also, no need to validate config file path here, since we've just edited the config file!
+
+	check_config_file_content
+
+	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+	import_encryption_services_configuration
+
+	exit 0
+
+	create_syncd_dirs
+
+
+
+## function create_syncd_dirs ()
 
 # 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
 #    +ALREADY EXIST, AND IF NOT, CREATE THEM:
@@ -439,18 +189,20 @@ echo && echo "synchronised_dir_fullpath variable now set to: $synchronised_dir_f
 #rm -R "$synchronised_dir_fullpath"
 
 test_dir_path_access "$synchronised_dir_fullpath"
-if [ $? -eq 0 ]
+return_code=$?
+if [ $return_code -eq 0 ]
 then
 	echo "synchronised_dir_fullpath ALREADY EXISTS AND CAN BE ENTERED OK"
 else
 	echo && echo "synchronised_dir_fullpath DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
 	# create it..
 	mkdir "$synchronised_dir_fullpath"
-	if [ $? -eq 0 ]
+	return_code=$?
+	if [ $return_code -eq 0 ]
 	then
 		echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
 	else
-		echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $?"
+		echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code"
 		echo "Nothing to do now, but to exit..." && echo
 		exit $E_UNEXPECTED_BRANCH_ENTERED
 	fi	
@@ -526,6 +278,153 @@ echo "encryption_services exit code: $?"
 ###############################################################################################
 # 
 
+####################################################################################################
+#
+function import_encryption_services_configuration()
+{
+
+echo
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo "STARTING THE 'IMPORT CONFIGURATION INTO VARIABLES' PHASE in script $(basename $0)"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+echo
+
+read
+
+get_config_values_for_all_dirs
+# for these dirs:
+# synchronised_location_holding_dir_fullpath
+# public_keyring_default_directory_fullpath
+# revocation_certificate_default_directory
+
+# NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
+# REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
+
+for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
+	"$revocation_certificate_default_directory_fullpath"
+do
+	# this valid form test works for sanitised directory paths too
+	test_file_path_valid_form "$dir"
+	return_code=$?
+	if [ $return_code -eq 0 ]
+	then
+		echo "DIRECTORY PATH IS OF VALID FORM"
+	else
+		echo "The valid form test FAILED and returned: $return_code"
+		echo "Nothing to do now, but to exit..." && echo
+		exit $E_UNEXPECTED_ARG_VALUE
+	fi	
+
+	# if the above test returns ok, ...
+	test_dir_path_access "$dir"
+	return_code=$?
+	if [ $return_code -eq 0 ]
+	then
+		echo "The full path to the DIRECTORY is: $dir"
+	else
+		echo "The DIRECTORY path access test FAILED and returned: $return_code"
+		echo "Nothing to do now, but to exit..." && echo
+		exit $E_REQUIRED_FILE_NOT_FOUND
+	fi
+done
+
+}
+
+
+##########################################################################################################
+# test whether the configuration files' format is valid,
+# and that each line contains something we're expecting
+function check_config_file_content()
+{
+	while read lineIn
+	do
+		# any content problems handled in the test_and_set_line_type function:
+        test_and_set_line_type "$lineIn"
+        return_code="$?"
+        echo "return code for tests on that line was: $return_code"
+        if [ $return_code -eq 0 ]
+        then
+            # if tested line contained expected content
+            # :
+            echo "That line was expected!" && echo
+        else
+            echo "That line was NOT expected!"
+            echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
+            exit 0
+        fi
+
+	done < "$config_file_fullpath" 
+
+}
+##########################################################################################################
+# program is expecting zero or more absolute paths to plaintext files to be encrypted 
+# this function now expects one or more of them...
+function verify_program_args
+{
+	# 2. VERIFY THAT ALL INCOMING ARGS ARE VALID AND ACCESSIBLE FILE PATHS 
+
+	# give user the opportunity to confirm argument values?
+	# get rid of this if feel like overkill
+	for incoming_arg in "${incoming_array[@]}"
+	do
+		echo "$incoming_arg"
+	done
+	
+	# if any of the args is not in the form of an absolute file path, exit program.
+	for incoming_arg in "${incoming_array[@]}"
+	do
+		echo "incoming argument is now: $incoming_arg"
+		test_file_path_valid_form "$incoming_arg"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo $incoming_arg
+			echo "VALID FORM TEST PASSED" && echo
+		else
+			echo "The valid form test FAILED and returned: $return_code"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_UNEXPECTED_ARG_VALUE
+		fi
+	done
+	
+	# if any of the args is not a readable, regular file, exit program
+	for incoming_arg in "${incoming_array[@]}"
+	do			
+		test_file_path_access "$incoming_arg"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo "The full path to the plaintext file is: $incoming_arg"
+			echo "REGULAR FILE READ TEST PASSED" && echo
+		else
+			echo "The file path access test FAILED and returned: $return_code"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_REQUIRED_FILE_NOT_FOUND
+		fi
+	done
+
+	######################
+	######### if found that plaintext_dir_fullpath need not be global here, 
+	######### change to a local simple variable name
+	###################
+	for incoming_arg in "${incoming_array[@]}"
+	do
+		plaintext_dir_fullpath=${incoming_arg%/*}
+		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
+		test_dir_path_access "$plaintext_dir_fullpath"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
+			echo "HOLDING DIRECTORY ACCESS READ TEST PASSED" && echo
+		else
+			echo "The directory path access test FAILED and returned: $return_code"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_REQUIRED_FILE_NOT_FOUND
+		fi
+	done
+
+}
 ##########################################################################################################
 # returns 
 function export_public_keys
@@ -1533,35 +1432,36 @@ function check_encryption_platform
 }
 
 #########################################################################################################
-###############################################################################################
 ##########################################################################################################
+# keep sanitise functions separate and specialised, as we may add more to specific value types in future
 # FINAL OPERATION ON VALUE, SO GLOBAL test_line SET HERE. RENAME CONCEPTUALLY DIFFERENT test_line NAMESAKES
 function sanitise_absolute_path_value ##
 {
-
-echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# sanitise values
 	# - trim leading and trailing space characters
-	# - trim trailing / for all paths [effectively making dir paths and file paths have same form - useful for using common access test]
+	# - trim trailing / for all paths
 	test_line="${1}"
 	echo "test line on entering "${FUNCNAME[0]}" is: $test_line" && echo
 
-	# TRIM TRAILING AND LEADING SPACES AND TABS
-	test_line=${test_line%%[[:blank:]]}
-	test_line=${test_line##[[:blank:]]}
+	while [[ "$test_line" == *'/' ]] ||\
+	 [[ "$test_line" == *[[:blank:]] ]] ||\
+	 [[ "$test_line" == [[:blank:]]* ]]
+	do 
+		# TRIM TRAILING AND LEADING SPACES AND TABS
+		# backstop code, as with leading spaces, config file line wouldn't even have been
+		# recognised as a value!
+		test_line=${test_line%%[[:blank:]]}
+		test_line=${test_line##[[:blank:]]}
 
-	# TRIM TRAILING / FOR ABSOLUTE PATHS:
-    while [[ "$test_line" == *'/' ]]
-    do
-        echo "FOUND ENDING SLASH"
-        test_line=${test_line%'/'}
-    done 
+		# TRIM TRAILING / FOR ABSOLUTE PATHS:
+		test_line=${test_line%'/'}
+	done
 
 	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
 
-echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
 ##########################################################################################################
@@ -1570,16 +1470,12 @@ echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 # SETS THE GLOBAL line_type AND test_line variableS.
 function test_and_set_line_type
 {
-
-#echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
+	#echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# TODO: ADD ANOTHER CONFIG FILE VALIDATION TEST:
 	# TEST THAT THE LINE FOLLOWING A VARIABLE= ALPHANUM STRING MUST BE A VALUE/ ALPHANUM STRING, ELSE FAIL
 	test_line="${1}"
 	line_type=""
-
-	#debug printouts:
-	#echo "$test_line"
 
 	if [[ "$test_line" == "#"* ]] # line is a comment (OR *"#"* in case space char before the # ? - try it)
 	then
@@ -1601,207 +1497,93 @@ function test_and_set_line_type
 			line_type="value_string"
 			echo "line_type set to: "$line_type" for "$test_line""
 		else
+            echo "line_type set to: \"UNKNOWN\" for "${test_line}""
 			echo "Failsafe : Couldn't match the Alphanum string"
-			echo "Exiting from function ${FUNCNAME[0]} in script $(basename $0)"
+			return $E_UNEXPECTED_BRANCH_ENTERED
+		fi
+	else
+	    echo "line_type set to: \"UNKNOWN\" for "$test_line""
+		echo "Failsafe : Couldn't match this line with ANY line type!"
+		return $E_UNEXPECTED_BRANCH_ENTERED
+	fi
+
+	#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
+
+}
+##########################################################################################################
+# for any absolute file path value to be imported...
+function get_config_values_for_all_dirs
+{
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
+
+	for keyword in "synchronised_location_holding_dir_fullpath=" "public_keyring_default_directory_fullpath="\
+	"revocation_certificate_default_directory_fullpath="
+	do
+		line_type=""
+		value_collection="OFF"
+
+		while read lineIn
+		do
+			test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
+
+			if [[ $value_collection == "ON" && $line_type == "value_string" ]]
+			then
+				sanitise_absolute_path_value "$lineIn"
+				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+				echo "test_line has the value: $test_line"
+				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+				set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
+
+			elif [[ $value_collection == "ON" && $line_type != "value_string" ]]
+			# last value has been collected for this holding directory
+			then
+				value_collection="OFF" # just because..
+				break # end this while loop, as last value has been collected for this holding directory
+			else
+				# value collection must be OFF
+				:
+			fi			
+			
+			# switch value collection ON for the NEXT line read
+			# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
+			if [[ "$lineIn" == "$keyword" ]]
+			then
+				value_collection="ON"
+			fi
+
+		done < "$config_file_fullpath"
+
+		# ASSIGN
+		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+		echo "test_line has the value: $1"
+		echo "the keyword on this for-loop is set to: $keyword"
+		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+
+		if [ "$keyword" == "synchronised_location_holding_dir_fullpath=" ]
+		then
+			synchronised_location_holding_dir_fullpath="$1"
+			# test_line just set globally in sanitise_absolute_path_value function
+		elif [ "$keyword" == "public_keyring_default_directory_fullpath=" ]
+		then
+			public_keyring_default_directory_fullpath="$1"
+			# test_line just set globally in sanitise_absolute_path_value function
+		elif [ "$keyword" == "revocation_certificate_default_directory_fullpath=" ]
+		then
+			revocation_certificate_default_directory_fullpath="$1"
+			# test_line just set globally in sanitise_absolute_path_value function
+		else
+			echo "Failsafe branch entered"
 			exit $E_UNEXPECTED_BRANCH_ENTERED
 		fi
 
-	else
-		echo "Failsafe : Couldn't match this line with ANY line type!"
-		echo "Exiting from function ${FUNCNAME[0]} in script $(basename $0)"
-		exit $E_UNEXPECTED_BRANCH_ENTERED
-	fi
+		set -- # unset that positional parameter we used to get test_line out of that while read subprocess
+		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+		echo "test_line (AFTER set --) has the value: $1"
+		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
-#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
+	done
 
-}
-
-##########################################################################################################
-## VARIABLE 1:
-function get_synchronised_location_holding_dir_fullpath_config
-{
-
-echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	keyword="synchronised_location_holding_dir_fullpath="
-	line_type=""
-	value_collection="OFF"
-
-	while read lineIn
-	do
-
-		test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-		if [[ $value_collection == "ON" && $line_type == "value_string" ]]
-		then
-			sanitise_absolute_path_value "$lineIn"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			echo "test_line has the value: $test_line"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
-
-		elif [[ $value_collection == "ON" && $line_type != "value_string" ]] 
-		# assume last value has been collected for synchronised_location_holding_dir_fullpath
-		then
-			value_collection="OFF" # just because..
-			break # end this while loop, as last value has been collected for synchronised_location_holding_dir_fullpath
-		else
-			# value collection must be OFF
-			:
-		fi
-		
-		
-		# switch value collection ON for the NEXT line read
-		# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-		# THIS IS NOW ASSUMED TO BE FALSE WHEN IT WAS TRUE FOR LAST LINE (ie NEVER KEYWORDS ON CONSECUTIVE LINES) \
-		# - COULD WE HAVE VALIDATED THE CONFIG FILE FOR THIS FOR THIS?
-		if [[ "$lineIn" == "$keyword" ]]
-		then
-			value_collection="ON"
-		fi
-
-	done < "$config_file_fullpath"
-
-	# ASSIGN
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line has the value: $1"
-	echo "synchronised_location_holding_dir_fullpath has the value: $synchronised_location_holding_dir_fullpath"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-	synchronised_location_holding_dir_fullpath="$1" # test_line just set globally in sanitise_absolute_path_value function
-	set -- # unset that positional parameter we used to get test_line out of that while read subprocess
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line (AFTER set --) has the value: $1"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-
-echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-##########################################################################################################
-## VARIABLE 2:
-function get_public_keyring_default_directory_fullpath_config
-{
-
-echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	keyword="public_keyring_default_directory_fullpath="
-	line_type=""
-	value_collection="OFF"
-
-	while read lineIn
-	do
-
-		test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-		if [[ $value_collection == "ON" && $line_type == "value_string" ]]
-		then
-			sanitise_absolute_path_value "$lineIn"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			echo "test_line has the value: $test_line"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
-
-		elif [[ $value_collection == "ON" && $line_type != "value_string" ]] 
-		# assume last value has been collected for public_keyring_default_directory_fullpath
-		then
-			value_collection="OFF" # just because..
-			break # end this while loop, as last value has been collected for public_keyring_default_directory_fullpath
-		else
-			# value collection must be OFF
-			:
-		fi
-		
-		
-		# switch value collection ON for the NEXT line read
-		# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-		# THIS IS NOW ASSUMED TO BE FALSE WHEN IT WAS TRUE FOR LAST LINE (ie NEVER KEYWORDS ON CONSECUTIVE LINES) \
-		# - COULD WE HAVE VALIDATED THE CONFIG FILE FOR THIS FOR THIS?
-		if [[ "$lineIn" == "$keyword" ]]
-		then
-			value_collection="ON"
-		fi
-
-	done < "$config_file_fullpath"
-
-	# ASSIGN
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line has the value: $1"
-	echo "public_keyring_default_directory_fullpath has the value: $public_keyring_default_directory_fullpath"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-	public_keyring_default_directory_fullpath="$1" # test_line just set globally in sanitise_absolute_path_value function
-	set -- # unset that positional parameter we used to get test_line out of that while read subprocess
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line (AFTER set --) has the value: $1"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-
-echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-##########################################################################################################
-## VARIABLE 3:
-function get_revocation_certificate_default_directory_fullpath_config
-{
-
-echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	keyword="revocation_certificate_default_directory_fullpath="
-	line_type=""
-	value_collection="OFF"
-
-	while read lineIn
-	do
-
-		test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-		if [[ $value_collection == "ON" && $line_type == "value_string" ]]
-		then
-			sanitise_absolute_path_value "$lineIn"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			echo "test_line has the value: $test_line"
-			echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-			set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
-
-		elif [[ $value_collection == "ON" && $line_type != "value_string" ]] 
-		# assume last value has been collected for revocation_certificate_default_directory_fullpath
-		then
-			value_collection="OFF" # just because..
-			break # end this while loop, as last value has been collected for revocation_certificate_default_directory_fullpath
-		else
-			# value collection must be OFF
-			:
-		fi
-		
-		
-		# switch value collection ON for the NEXT line read
-		# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-		# THIS IS NOW ASSUMED TO BE FALSE WHEN IT WAS TRUE FOR LAST LINE (ie NEVER KEYWORDS ON CONSECUTIVE LINES) \
-		# - COULD WE HAVE VALIDATED THE CONFIG FILE FOR THIS FOR THIS?
-		if [[ "$lineIn" == "$keyword" ]]
-		then
-			value_collection="ON"
-		fi
-
-	done < "$config_file_fullpath"
-
-	# ASSIGN
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line has the value: $1"
-	echo "revocation_certificate_default_directory_fullpath has the value: $revocation_certificate_default_directory_fullpath"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-	revocation_certificate_default_directory_fullpath="$1" # test_line just set globally in sanitise_absolute_path_value function
-	set -- # unset that positional parameter we used to get test_line out of that while read subprocess
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "test_line (AFTER set --) has the value: $1"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-
-echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
@@ -2010,18 +1792,6 @@ function get_required_service
 }
 
 #########################################################################################################
-# IF USE CASES FOR THE COEXISTENCE OF DIFFERENT CONFIGURATION FILES EVER ARISES
-# WE CAN USE THIS FUNCTION TO USER OPTIONS:
-# USE OPTION MENU, THE $REPLY VARIABLE... FOR BETTER INTERACTION
-function get_config_file_to_use
-{
-	## 
-	echo
-	echo ":::   [ USING THE DEFAULT CONFIGURATION FILE ]   :::"
-	echo
-	sleep 2
-}
-###############################################################################################
 
 main "$@"; exit
 
