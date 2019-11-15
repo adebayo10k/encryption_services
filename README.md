@@ -7,10 +7,12 @@ Feel free to download or fork any of the work contained here. This project is be
 Providing GPG encryption services
 ===
 
-**encryption_services** will use be used as part of my current obsession with building my own system of __specialised tools__.
+**encryption_services** is a set of utility shell scripts, to use be used as part of my current obsession with building my own system of __specialised tools__ for my own specific workflows.
 Nothing too sophisticated for now, certainly not anything to be used outside of administering by own personal systems and networks.
 
-**Use Case:**
+**Use Case for "file_encrypter.sh":**
+
+Need to encrypt one or more files using configured parameters.
 
 Well, this is the one on which I'll base development for now, although I can already imagine there's gonna be loads more scenarios - Who *doesn't* need a bit of encryption now and again...?
 
@@ -39,6 +41,6 @@ I initially just wanted to create a small script (called public_key_backup) to r
 
 >That's the purpose of this project.
 
-Thankyou :octocat:
+Many thanks to :octocat:
 
 
