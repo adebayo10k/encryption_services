@@ -1,6 +1,6 @@
 #!/bin/bash
 #: Title		:encryption_services
-#: Date			:2019-07-13
+#: Date			:2019-11-15
 #: Author		:adebayo10k
 #: Version		:1.0
 #: Description	:script provides encryption services both to other scripts  
@@ -14,7 +14,15 @@
 
 function main
 {	
-	echo "USAGE: $(basename $0) [<file paths>]" # zero or more strings (representing fullpaths to files)
+	echo "USAGE: $(basename $0)"
+
+	# TEST COMMAND LINE ARGS
+	if [ $# -gt 0 ]
+	then
+		echo "Incorrect number of command line args. Exiting now..."
+		echo "Usage: $(basename $0)"
+		exit $E_INCORRECT_NUMBER_OF_ARGS
+	fi
 
 	#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
 	# might also be useful to validate that no parameters were given from the command line.
@@ -25,7 +33,7 @@ function main
 	# Display a program header and give user option to leave if here in error:
 	echo
 	echo -e "		\033[33m===================================================================\033[0m";
-	echo -e "		\033[33m||                Welcome to ENCRYPTION SERVICES                  ||  author: adebayo10k\033[0m";  
+	echo -e "		\033[33m||        Welcome to KEY GENERATION AND MANAGEMENT UTILITY        ||  author: adebayo10k\033[0m";  
 	echo -e "		\033[33m===================================================================\033[0m";
 	echo
 	echo " Type q to quit NOW, or press ENTER to continue."
@@ -139,131 +147,55 @@ function main
 
 	###############################################################################################
 
-	echo
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "STARTING THE \"VALIDATE ARGS PASSED TO SCRIPT\" SECTION in script $(basename $0)"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo
+	#echo
+	#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+	#echo "STARTING THE \"VALIDATE ARGS PASSED TO SCRIPT\" SECTION in script $(basename $0)"
+	#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+	#echo
+#
+	#read
+#
+	##
+	## 1. SET HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
+	#number_of_incoming_params=$#
+	#echo "Number of arguments passed in = $number_of_incoming_params"
+#
+	## if one or more args put them into an array 
+	#if [ $number_of_incoming_params -gt 0 ]
+	#then
+	#	incoming_array=( "$@" )
+	#	verify_program_args		
+	#fi
 
-	read
+	config_file_fullpath="/etc/key_generator_and_manager.config"
 
-	#
-	# 1. SET HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
-	number_of_incoming_params=$#
-	echo "Number of arguments passed in = $number_of_incoming_params"
-
-	# if one or more args put them into an array 
-	if [ $number_of_incoming_params -gt 0 ]
-	then
-		incoming_array=( "$@" )
-		verify_program_args		
-	fi
-
-	config_file_fullpath="/etc/encryption_services_config"
-
-	echo "Opening your editor now..." && echo && sleep 2
+	echo "Opening an editor now..." && echo && sleep 2
     sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
     # also, no need to validate config file path here, since we've just edited the config file!
 
-	check_config_file_content
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
 	import_encryption_services_configuration
 
+	create_all_synchronised_dirs
+
+
+	# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT ON WHICH THIS PROGRAM DEPENDS:
+	check_encryption_platform
+
+	# issue gpg commands to list keys for now... just to see what's there
+	bash -c "gpg --list-key"
+	bash -c "gpg --list-secret-keys"
+
 	exit 0
 
-	create_syncd_dirs
+	generate_and_manage_keys
 
 
-
-## function create_syncd_dirs ()
-
-# 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
-#    +ALREADY EXIST, AND IF NOT, CREATE THEM:
-# TODO:  # mkdir -p // no error if exists (idempotent), make parents structure /a/b/c as needed MAY BE MORE EFFICIENT
-
-synchronised_dir_fullpath="${synchronised_location_holding_dir_fullpath}/${this_host}_gpg"
-echo && echo "synchronised_dir_fullpath variable now set to: $synchronised_dir_fullpath"
-
-# temporary rmdir during development, just until all directory creations confirmed working
-#rm -R "$synchronised_dir_fullpath"
-
-test_dir_path_access "$synchronised_dir_fullpath"
-return_code=$?
-if [ $return_code -eq 0 ]
-then
-	echo "synchronised_dir_fullpath ALREADY EXISTS AND CAN BE ENTERED OK"
-else
-	echo && echo "synchronised_dir_fullpath DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
-	# create it..
-	mkdir "$synchronised_dir_fullpath"
-	return_code=$?
-	if [ $return_code -eq 0 ]
-	then
-		echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
-	else
-		echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code"
-		echo "Nothing to do now, but to exit..." && echo
-		exit $E_UNEXPECTED_BRANCH_ENTERED
-	fi	
-fi
-
-synchronised_subdirs=\
-(\
-"${synchronised_dir_fullpath}/${this_host}_public_keys_incoming" \
-"${synchronised_dir_fullpath}/${this_host}_public_keys_outgoing" \
-"${synchronised_dir_fullpath}/${this_host}_revocation_certificates" \
-"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive" \
-)
-
-for subdir in ${synchronised_subdirs[@]}
-do
-	test_dir_path_access "$subdir"
-	if [ $? -eq 0 ]
-	then
-		echo "subdir ALREADY EXISTS AND CAN BE ENTERED OK"
-	else
-		echo && echo "subdir DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
-		# create it..
-		mkdir "$subdir"
-		if [ $? -eq 0 ]
-		then
-			echo "subdir CREATION WAS SUCCESSFUL"
-		else
-			echo "The mkdir of subdir FAILED and returned: $?"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_UNEXPECTED_BRANCH_ENTERED
-		fi	
-	fi
-done
-
-
-# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
-# 
-check_encryption_platform
-
-# issue gpg commands to list keys for now... just to see what's there
-bash -c "gpg --list-key"
-bash -c "gpg --list-secret-keys"
-
-# 0. FIND OUT WHICH SERVICE IS REQUIRED
-
-get_required_service
-
-
-# 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
-
-
-echo "encryption_services exit code: $?" 
+	# 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+	echo "encryption_services exit code: $?" 
 
 } ## end main
-
-
-
-
-
-
-
 
 
 
@@ -278,6 +210,78 @@ echo "encryption_services exit code: $?"
 ###############################################################################################
 # 
 
+
+
+
+
+
+
+
+
+###############################################################################################
+function create_all_synchronised_dirs()
+{
+
+	# 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
+	#    +ALREADY EXIST, AND IF NOT, CREATE THEM:
+	# TODO:  # mkdir -p // no error if exists (idempotent), make parents structure /a/b/c as needed MAY BE MORE EFFICIENT
+
+	synchronised_dir_fullpath="${synchronised_location_holding_dir_fullpath}/${this_host}_gpg"
+	echo && echo "synchronised_dir_fullpath variable now set to: $synchronised_dir_fullpath"
+
+	# temporary rmdir during development, just until all directory creations confirmed working
+	#rm -R "$synchronised_dir_fullpath"
+
+	test_dir_path_access "$synchronised_dir_fullpath"
+	return_code=$?
+	if [ $return_code -eq 0 ]
+	then
+		echo "synchronised_dir_fullpath ALREADY EXISTS AND CAN BE ENTERED OK"
+	else
+		echo && echo "synchronised_dir_fullpath DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
+		# create it..
+		mkdir "$synchronised_dir_fullpath"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
+		else
+			echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code"
+			echo "Nothing to do now, but to exit..." && echo
+			exit $E_UNEXPECTED_BRANCH_ENTERED
+		fi	
+	fi
+
+	synchronised_subdirs=\
+(\
+"${synchronised_dir_fullpath}/${this_host}_public_keys_incoming" \
+"${synchronised_dir_fullpath}/${this_host}_public_keys_outgoing" \
+"${synchronised_dir_fullpath}/${this_host}_revocation_certificates" \
+"${synchronised_dir_fullpath}/${this_host}_public_keyring_archive" \
+)
+
+	for subdir in ${synchronised_subdirs[@]}
+	do
+		test_dir_path_access "$subdir"
+		if [ $? -eq 0 ]
+		then
+			echo "subdir ALREADY EXISTS AND CAN BE ENTERED OK"
+		else
+			echo && echo "subdir DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
+			# create it..
+			mkdir "$subdir"
+			if [ $? -eq 0 ]
+			then
+				echo "subdir CREATION WAS SUCCESSFUL"
+			else
+				echo "The mkdir of subdir FAILED and returned: $?"
+				echo "Nothing to do now, but to exit..." && echo
+				exit $E_UNEXPECTED_BRANCH_ENTERED
+			fi	
+		fi
+	done
+
+}
 ####################################################################################################
 #
 function import_encryption_services_configuration()
@@ -1411,7 +1415,7 @@ function gpg_file_encryption_service
 ###############################################################################################
 
 # check that the OpenPGP tool gpg is installed on the system
-#  
+# check that the file_encrypter.sh program is accessible
 function check_encryption_platform
 {
 		
@@ -1428,6 +1432,15 @@ function check_encryption_platform
 		exit $E_REQUIRED_PROGRAM_NOT_FOUND
 	fi
 
+	# we test for the existence of a known script that provides encryption services:
+	which file_encrypter.sh
+	if [ $? -eq 0 ]
+	then
+		echo "THE file_encrypter.sh PROGRAM WAS FOUND TO BE INSTALLED OK ON THIS HOST SYSTEM"	
+	else
+		echo "FAILED TO FIND THE file_encrypter.sh PROGRAM ON THIS SYSTEM, SO NO NOTHING LEFT TO DO BUT EXEET, GOODBYE"
+		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+	fi	
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
@@ -1684,115 +1697,115 @@ function test_dir_path_access
 ## SET GLOBAL VARIABLE service_index WRT A SPECIFIC SERVICE
 # CALL THE FUNCTIONS AND SCRIPTS THAT COMBINE TO PROVIDE THE REQUESTED SERVICE
 # 
-function get_required_service
-{
-	
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	
-	while true
-	do
-		
-		service_option=""
-		
-		echo
-		echo ">>>   :::   SELECT [SERVICE]   :::" # use cases
-		echo
-		echo 
-		echo ">>>   [1] = GPG ENCRYPT one or more plaintext files"
-		echo 
-		echo ">>>   [2] = GPG DECRYPT one or more encrypted files"
-		echo
-		echo ">>>   [3] = GENERATE a new GPG public key encryption key-pair and MANAGE keys and certificates"
-		echo
-		echo ">>>   [4] = IMPORT GPG public key and backup keyring"
-		echo
-		echo ">>>   [5] = GPG ENCRYPT and SIGN one or more documents"
-		echo
-		echo ">>>   [6] = REVOKE a key and PUBLISH revoked"
-		echo
-		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
-		echo
-		echo
-		echo ">>>   :::   THE FOLLOWING OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
-		echo
-		echo ">>>   [NULL] = IMPORTING public keys into keyrings"
-		echo ">>>   [NULL] = SIGNING of imported keys using our private keys"
-		echo ">>>   [NULL] = ...."
-		echo
-
-		read service_option
-
-		echo "user has selected option: $service_option"
-
-		case $service_option in
-		1)		# gpg file encryption service:
-				service_index=1
-				echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
-
-				# NOW WE MUST CHECK FOR PRE-REQUISITES:
-				# does incoming_array have one or more elements?
-				# ...
-				if [ ${#incoming_array[@]} -gt 0 ]
-				then
-					gpg_file_encryption_service
-					# result_code=$?
-				else
-					# this will soon be possible!
-					echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
-					exit "$E_INCORRECT_NUMBER_OF_ARGS"
-				fi
-				break
-				;;
-
-		2)		# gpg decryption:
-				service_index=2
-				echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
-				continue
-				;;
-
-		3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
-				# backup public keyring
-				# generate revocation certificate
-				# encrypt and backup revocation certificate
-				# backup exported public key
-				service_index=3
-				echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
-
-				generate_and_manage_keys
-				break				
-				;;
-
-		4)		# import GPG public key and backup keyring:
-				service_index=4
-				echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
-				continue
-				;;
-
-		5)		# gpg document encryption and signing:
-				service_index=5
-				echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
-				continue
-				;;
-
-		[Qq])	echo && echo "Goodbye!" && sleep 1
-				exit 0
-				;;
-
-		*)		# DEFAULT (FAILSAFE) CASE:
-				echo "Just a simple 1-5 will do..." && sleep 2
-				service_index=0
-				continue
-				;;
-		esac 
-
-	done
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
+#function get_required_service
+# {
+#	
+#	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
+#
+#	
+#	while true
+#	do
+#		
+#		service_option=""
+#		
+#		echo
+#		echo ">>>   :::   SELECT [SERVICE]   :::" # use cases
+#		echo
+#		echo 
+#		echo ">>>   [1] = GPG ENCRYPT one or more plaintext files"
+#		echo 
+#		echo ">>>   [2] = GPG DECRYPT one or more encrypted files"
+#		echo
+#		echo ">>>   [3] = GENERATE a new GPG public key encryption key-pair and MANAGE keys and certificates"
+#		echo
+#		echo ">>>   [4] = IMPORT GPG public key and backup keyring"
+#		echo
+#		echo ">>>   [5] = GPG ENCRYPT and SIGN one or more documents"
+#		echo
+#		echo ">>>   [6] = REVOKE a key and PUBLISH revoked"
+#		echo
+#		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
+#		echo
+#		echo
+#		echo ">>>   :::   THE FOLLOWING OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
+#		echo
+#		echo ">>>   [NULL] = IMPORTING public keys into keyrings"
+#		echo ">>>   [NULL] = SIGNING of imported keys using our private keys"
+#		echo ">>>   [NULL] = ...."
+#		echo
+#
+#		read service_option
+#
+#		echo "user has selected option: $service_option"
+#
+#		case $service_option in
+#		1)		# gpg file encryption service:
+#				service_index=1
+#				echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
+#
+#				# NOW WE MUST CHECK FOR PRE-REQUISITES:
+#				# does incoming_array have one or more elements?
+#				# ...
+#				if [ ${#incoming_array[@]} -gt 0 ]
+#				then
+#					gpg_file_encryption_service
+#					# result_code=$?
+#				else
+#					# this will soon be possible!
+#					echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
+#					exit "$E_INCORRECT_NUMBER_OF_ARGS"
+#				fi
+#				break
+#				;;
+#
+#		2)		# gpg decryption:
+#				service_index=2
+#				echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
+#				continue
+#				;;
+#
+#		3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
+#				# backup public keyring
+#				# generate revocation certificate
+#				# encrypt and backup revocation certificate
+#				# backup exported public key
+#				service_index=3
+#				echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
+#
+#				generate_and_manage_keys
+#				break				
+#				;;
+#
+#		4)		# import GPG public key and backup keyring:
+#				service_index=4
+#				echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
+#				continue
+#				;;
+#
+#		5)		# gpg document encryption and signing:
+#				service_index=5
+#				echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
+#				continue
+#				;;
+#
+#		[Qq])	echo && echo "Goodbye!" && sleep 1
+#				exit 0
+#				;;
+#
+#		*)		# DEFAULT (FAILSAFE) CASE:
+#				echo "Just a simple 1-5 will do..." && sleep 2
+#				service_index=0
+#				continue
+#				;;
+#		esac 
+#
+#	done
+#
+#
+#	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
+#
+#}
+#
 #########################################################################################################
 
 main "$@"; exit
