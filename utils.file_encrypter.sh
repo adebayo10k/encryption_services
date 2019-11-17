@@ -14,7 +14,7 @@
 
 function main
 {	
-	echo "USAGE: $(basename $0) [<absolute file path>...]" # one or more strings (representing fullpaths to files)
+	echo "USAGE: $(basename $0) <[<absolute file path>...]" # one or more strings (representing fullpaths to files)
 
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
 
@@ -710,7 +710,8 @@ function check_gpg_user_keys
 	bash -c "gpg --list-secret-keys"
 
 	# get the users' gpg UID from terminal
-	echo "Just for FINGERPRINT ID, enter your user-id (example: order@entropism.org)"
+	echo "To make sure you have keys here with which to ENCRYPT, we'll just look for a FINGERPRINT for your USER-ID" && echo
+	echo "Enter your user-id (example: order@entropism.org)"
 
 	read userid && echo
 
@@ -737,6 +738,8 @@ function check_gpg_user_keys
 
 function gpg_encrypt_files
 {
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
+
 	# sets the generic_command global
 	# create a generic file encryption command string for either public key or symmetric key encryption:
 
@@ -787,6 +790,8 @@ function gpg_encrypt_files
 	fi	
 
 	#return $encrypt_result # resulting from the last successful encryption only! So what use is that?
+
+	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 }
 
