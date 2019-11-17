@@ -1,11 +1,11 @@
 #!/bin/bash
-#: Title		:encryption_services
+#: Title		:key_generator_and_manager.sh
 #: Date			:2019-11-15
 #: Author		:adebayo10k
 #: Version		:1.0
-#: Description	:script provides encryption services both to other scripts  
-#: Description	:and to the command-line user.  
-#: Description	:to encrypt one or more files.
+#: Description	:script provides gpg encryption services to the command-line user 
+#: Description	: 
+#: Description	:to generate new encryption keys and revocation certs, then automatically
 #: Description	:to backup configurations, revocation certs and keys in appropriate ways
 #: Description	:integrate with existing system of backup, synchronisation and encryption 
 #: Description	:ssh into remotes to backup their keys too
@@ -23,10 +23,6 @@ function main
 		echo "Usage: $(basename $0)"
 		exit $E_INCORRECT_NUMBER_OF_ARGS
 	fi
-
-	#requested_mount_dir=${1:-"not_yet_set"} ## whether this script run directly or called by shred_dirs
-	# might also be useful to validate that no parameters were given from the command line.
-	# USE [$SHLVL -gt 2] AS AN ADDITIONAL, MORE SPECIFIC TEST OF WHERE THIS SCRIPT WAS CALLED FROM
 
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
 
@@ -77,38 +73,17 @@ function main
 	line_type="" # global...
 	test_line="" # global...
 
-	service_index= # service number of selected service
-
-	declare -a incoming_array=()
+	declare -a file_fullpaths_to_encrypt=()
 
 	################################################
 
-	# independent variables
-	encryption_system= # public_key | symmetric_key
-	output_file_format= # ascii | binary
-
-	# dependent variables
-	encryption_system_option= # --encrypt | --symmetric
-	output_file_extension= # .asc | .gpg
-
 	armor_option='--armor'
-	sender_option='--local-user'
-	recipient_option='--recipient'
-	sender_uid=""
-	recipient_uid=""
-	declare -a recipient_uid_list=()
 
 	################################################
 
 	gpg_command='gpg'
 	output_option='--output'
 	file_path_placeholder='<filepath_placeholder>'
-
-	generic_command=""
-	file_specific_command=""
-
-	plaintext_file_fullpath=""
-	plaintext_dir_fullpath=""
 
     abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 	all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
@@ -133,39 +108,12 @@ function main
 	##################################################
 
 	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
-	# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
 	echo "The absolute path to this script is: $0"
-	## UNLESS SCRIPT 'SOMEHOW' SITS IN THE ROOT DIRECTORY, IN WHICH CASE WE'D JUST REMOVE "$(basename $0)"
-	## remove from end of full path to script:
-	# 1. a directory delimiter
-	# 2. the basename (or everything following the delimiter)
-	#script_root_dir="${0%'/'"$(basename $0)"}"
 	script_root_dir="${0%'/'*}" 
 	echo "Script root directory set to: $script_root_dir"
 	export script_root_dir
 	
-
 	###############################################################################################
-
-	#echo
-	#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	#echo "STARTING THE \"VALIDATE ARGS PASSED TO SCRIPT\" SECTION in script $(basename $0)"
-	#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	#echo
-#
-	#read
-#
-	##
-	## 1. SET HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
-	#number_of_incoming_params=$#
-	#echo "Number of arguments passed in = $number_of_incoming_params"
-#
-	## if one or more args put them into an array 
-	#if [ $number_of_incoming_params -gt 0 ]
-	#then
-	#	incoming_array=( "$@" )
-	#	verify_program_args		
-	#fi
 
 	config_file_fullpath="/etc/key_generator_and_manager.config"
 
@@ -173,27 +121,22 @@ function main
     sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
     # also, no need to validate config file path here, since we've just edited the config file!
 
-
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
 	import_encryption_services_configuration
 
 	create_all_synchronised_dirs
 
-
-	# 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT ON WHICH THIS PROGRAM DEPENDS:
+	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT ON WHICH THIS PROGRAM DEPENDS:
 	check_encryption_platform
 
 	# issue gpg commands to list keys for now... just to see what's there
 	bash -c "gpg --list-key"
 	bash -c "gpg --list-secret-keys"
 
-	exit 0
-
 	generate_and_manage_keys
 
-
-	# 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
-	echo "encryption_services exit code: $?" 
+	# ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
+	echo "key_generator_and_manager exit code: $?" 
 
 } ## end main
 
@@ -360,76 +303,7 @@ function check_config_file_content()
 	done < "$config_file_fullpath" 
 
 }
-##########################################################################################################
-# program is expecting zero or more absolute paths to plaintext files to be encrypted 
-# this function now expects one or more of them...
-function verify_program_args
-{
-	# 2. VERIFY THAT ALL INCOMING ARGS ARE VALID AND ACCESSIBLE FILE PATHS 
-
-	# give user the opportunity to confirm argument values?
-	# get rid of this if feel like overkill
-	for incoming_arg in "${incoming_array[@]}"
-	do
-		echo "$incoming_arg"
-	done
-	
-	# if any of the args is not in the form of an absolute file path, exit program.
-	for incoming_arg in "${incoming_array[@]}"
-	do
-		echo "incoming argument is now: $incoming_arg"
-		test_file_path_valid_form "$incoming_arg"
-		return_code=$?
-		if [ $return_code -eq 0 ]
-		then
-			echo $incoming_arg
-			echo "VALID FORM TEST PASSED" && echo
-		else
-			echo "The valid form test FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_UNEXPECTED_ARG_VALUE
-		fi
-	done
-	
-	# if any of the args is not a readable, regular file, exit program
-	for incoming_arg in "${incoming_array[@]}"
-	do			
-		test_file_path_access "$incoming_arg"
-		return_code=$?
-		if [ $return_code -eq 0 ]
-		then
-			echo "The full path to the plaintext file is: $incoming_arg"
-			echo "REGULAR FILE READ TEST PASSED" && echo
-		else
-			echo "The file path access test FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
-		fi
-	done
-
-	######################
-	######### if found that plaintext_dir_fullpath need not be global here, 
-	######### change to a local simple variable name
-	###################
-	for incoming_arg in "${incoming_array[@]}"
-	do
-		plaintext_dir_fullpath=${incoming_arg%/*}
-		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
-		test_dir_path_access "$plaintext_dir_fullpath"
-		return_code=$?
-		if [ $return_code -eq 0 ]
-		then
-			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
-			echo "HOLDING DIRECTORY ACCESS READ TEST PASSED" && echo
-		else
-			echo "The directory path access test FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
-		fi
-	done
-
-}
-##########################################################################################################
+###########################################################################################################
 # returns 
 function export_public_keys
 {
@@ -487,22 +361,26 @@ function rename_and_move_revocation_certificates
 	echo "rev_certs_moved_OK was set to: $rev_certs_moved_OK"
 }
 ##########################################################################################################
-# returns 
+# WE KNOW THAT REVOCATION CERTS AND PRIVATE KEYS SHOULD NEVER EXIST ON THE SAME HOST, BUT WHILE REV CERTS DO \
+# + EXIST ON OUR SYSTEM, WE'LL USE ENCRYPTION AND SHREDDING TO ACHEIVE CONFIDENTIALITY AND INTEGRITY
+# gpg encrypt both user-generated and pre-generated revocation certs in the GnuPG default location	
 function encrypt_revocation_certificates
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	test_result=
-	rev_cert_encrypt_OK=false
-	
+	rev_cert_encrypt_OK=false	
 	echo "rev_cert_encrypt_OK is set to: $rev_cert_encrypt_OK"
 
-
 	touch "${synchronised_dir_fullpath}/${this_host}_revocation_certificates/keypair_fingerprint_list"
-
+	
+	# we first just need to populate file_fullpaths_to_encrypt array
+	# we'll also append a list of fingerprints in a synchornised location file
+	# we'll use file_fullpaths_to_encrypt to create a string and pass it into file_encrypter.sh
 	for file in "${revocation_certificate_default_directory_fullpath}"/*
 	do
-		incoming_array+=( "${file}" )
+		#incoming_array+=( "${file}" )
+		file_fullpaths_to_encrypt+=( "${file}" )
 		if [[ $file =~ .rev$ ]]
 		then
 			fingerprint="${file%.rev}"; fingerprint="${fingerprint##*'/'}"
@@ -511,23 +389,44 @@ function encrypt_revocation_certificates
 		fi
 	done
 
-	echo && echo "incoming_array HAS NOW BEEN POPULATED WITH REVOCATION CERTS"
+	echo && echo "file_fullpaths_to_encrypt ARRAY HAS NOW BEEN POPULATED WITH REVOCATION CERTS"
 
-	# encrypt whatever we've put in that incoming_array (should normally be just 2 files - the pre and user-generated rev certs)
+	# BASH ARRAYS ARE NOT 'FIRST CLASS VALUES' SO CAN'T BE PASSED AROUND LIKE ONE THING\
+	# - so since we're only intending to make a single call\
+	# to file_encrypter.sh, we need to make an IFS separated string argument
+	for filename in "${file_fullpaths_to_encrypt[@]}"
+	do
+		#echo "888888888888888888888888888888888888888888888888888888888888888888"
+		string_to_send+="${filename} " # with a trailing space character after each
+	done
+
+	# now to trim that last trailing space character:
+	string_to_send=${string_to_send%[[:blank:]]}
+
+	echo "${string_to_send}"
+
+	# encrypt whatever we put in that file_fullpaths_to_encrypt (should normally be just 2 files\
+	# - the pre and user-generated rev certs)
+	
+	# we want to replace EACH revocation certificate to be replaced by an encrypted version...
 	# our encryption script takes care of shredding everything it encrypts!
 	# TODO: THINK... WE COULD ENCRYPT WITH A DIFFERENT KEY - A KEY FOR THIS PURPOSE ONLY?
+	
+	echo && echo "JUST ABOUT TO CALL file_encrypter.sh ..."
 
-	echo && echo "JUST ABOUT TO CALL gpg_file_encryption_service ..."
+	# ... so, we call file_encrypter.sh script to handle the file encryption job
+	# the command argument is deliberately unquoted, so the default space character IFS DOES separate\
+	# the string into arguments
+	# we can use ANY available private key for this, not just the newly generated one! tell the user!
+	file_encrypter.sh $string_to_send
 
-	gpg_file_encryption_service # we can use ANY available private key for this, not just the newly generated one! tell the user!
-	test_result=$?
-
-	if [ $test_result -eq 0 ]
+	encrypt_result=$?
+	if [ $encrypt_result -eq 0 ]
 	then
-		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION WAS SUCCESSFUL"
+		echo && echo "RETURNED VALUE \"$encrypt_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION WAS SUCCESSFUL"
 		rev_cert_encrypt_OK=true
 	else
-		echo && echo "RETURNED VALUE \"$test_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION FAILED"
+		echo && echo "RETURNED VALUE \"$encrypt_result\" THEREFORE REVOCATION CERTIFICATE ENCRYPTION FAILED"
 		rev_cert_encrypt_OK=false
 	fi
 
@@ -548,14 +447,6 @@ function generate_revocation_certificate
 
 	# generate a revocation certificate (user-generated) for the new key-pair
 	# for now we'll just hard code for an ascii (the default) format certificate
-
-	# WE KNOW THAT REVOCATION CERTS AND PRIVATE KEYS SHOULD NEVER EXIST ON THE SAME HOST, BUT WHILE REV CERTS DO \
-	# + EXIST ON OUR SYSTEM, WE'LL USE ENCRYPTION AND SHREDDING TO ACHEIVE CONFIDENTIALITY AND INTEGRITY
-
-	# gpg encrypt both user-generated and pre-generated revocation certs in the GnuPG default location	
-	
-	# we first just need to load up incoming_array
-	# we'll also append a list of fingerprints
 
 	gpg --output "${revocation_certificate_default_directory_fullpath}/revoke_cert_${this_host}_$(date +'%F@%T').asc" \
 	--gen-revoke "$user_id"
@@ -922,497 +813,8 @@ function generate_and_manage_keys
 
 ###############################################################################################
 ###############################################################################################
-# test for removal of plaintext file(s)
-# 
-function verify_file_shred_results
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-
-	# :
-	for valid_path in "${incoming_array[@]}"
-	do
-		if [ -f "${valid_path}" ]
-		then
-			# failure of shred
-			echo "FAILED TO CONFIRM THE SHRED REMOVAL OF FILE:"
-			echo "${valid_path}" && echo
-		else
-			# success of shred
-			echo "SUCCESSFUL SHRED REMOVAL OF FILE:"
-			echo "${valid_path}" && echo
-
-		fi
-	done
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-###############################################################################################
-# standard procedure once encrypted versions exits: remove the plaintext versions!
-function shred_plaintext_files
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-
-	echo "OK TO SHRED THE FOLLOWING PLAINTEXT FILE(S)?..." && echo
-
-	# list the encrypted files:
-	for valid_path in "${incoming_array[@]}"
-	do
-		echo "${valid_path}"	
-	done
-
-	# for now, confirmation by pressing enter
-	read
-
-	# shred the plaintext file and verify its' removal
-	for valid_path in "${incoming_array[@]}"
-	do
-		sudo shred -n 1 -ufv "${valid_path}"	
-	done
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-###############################################################################################
-# test for encrypted file type
-# test for read access to file 
-# 
-function verify_file_encryption_results
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	valid_path="$1"
-
-	# TODO: FIND SOME BETTER TESTS FOR A GPG ENCRYPTED FILE
-	result=$(file "${valid_path}.ENCRYPTED${output_file_extension}" | grep 'PGP') # &2>/dev/null)
-
-	if [ $? -eq 0 ] && [ "$encryption_system" == "public_key" ]
-	#if [ $result -eq 0 ]
-	then
-		echo "PUBLIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
-		echo "${valid_path}.ENCRYPTED${output_file_extension}"
-	elif [ $? -eq 0 ] && [ "$encryption_system" == "symmetric_key" ]
-	then
-		echo "SYMMETRIC KEY ENCRYPTED FILE CREATED SUCCESSFULLY AS:"
-		echo "${valid_path}.ENCRYPTED${output_file_extension}"
-	else
-		return 1 ## unexpected file type ERROR CODE
-	fi
-
-	
-	# test encrypted file for expected file type (regular) and read permission
-	# TODO: THIS SHOULD BE ONE FOR THE test_file_path_access FUNCTION
-	if [ -f "${valid_path}.ENCRYPTED${output_file_extension}" ] \
-	&& [ -r "${valid_path}.ENCRYPTED${output_file_extension}" ]
-	then
-		# encrypted file found and accessible
-		echo "Encrypted file found to be readable" && echo
-	else
-		# -> exit due to failure of any of the above tests:
-		echo "Returning from function ${FUNCNAME[0]} in script $(basename $0)"
-		return $E_REQUIRED_FILE_NOT_FOUND
-	fi
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-	return 0
-}
-
-###############################################################################################
-# the absolute path to the plaintext file is passed in
-#
-function execute_file_specific_encryption_command
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	valid_path="$1"
-
-	# using [,] delimiter to avoid interference with file path [/]
-	file_specific_command=$(echo "$generic_command" | sed 's,'$file_path_placeholder','$valid_path',' \
-	| sed 's,'$file_path_placeholder','$valid_path',')
-
-	echo "$file_specific_command"
-
-	# get user confirmation before executing file_specific_command
-	# [call a function for this, which can abort the whole encryption process if there's a problem at this point]
-	echo && echo "Command look OK?"
-	read	# just pause here for now
-
-	# execute file_specific_command if return code from user confirmation = 0
-	# execute [here] using bash -c ...
-	bash -c "$file_specific_command"
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-###############################################################################################
-# this function called if encryption_system="symmetric"
-function create_generic_symmetric_key_encryption_command_string
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
-
-# $ gpg --armor --output "$plaintext_file_fullpath.ENCRYPTED.asc" --symmetric "$plaintext_file_fullpath"
-
-	generic_command=
-
-	generic_command+="${gpg_command} "
-
-	if [ $output_file_format == "ascii" ]
-	then
-		generic_command+="${armor_option} "
-		generic_command+="${output_option} ${file_path_placeholder}.ENCRYPTED"
-		generic_command+="${output_file_extension} "
-	fi
-
-	generic_command+="${encryption_system_option} ${file_path_placeholder}"
-
-
-	echo "$generic_command"
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-###############################################################################################
-# this function called if encryption_system="public_key"
-function create_generic_pub_key_encryption_command_string
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	echo "OK, WE'RE HERE, READY TO BUILD THAT COMMAND STRING"
-
-# $ gpg --armor --output "$plaintext_file_fullpath.ENCRYPTED.asc" \
-# --local-user <uid> --recipient <uid> --encrypt "$plaintext_file_fullpath"
-
-	generic_command=
-
-	generic_command+="${gpg_command} "
-
-	if [ $output_file_format == "ascii" ]
-	then
-		generic_command+="${armor_option} "
-		generic_command+="${output_option} ${file_path_placeholder}.ENCRYPTED"
-		generic_command+="${output_file_extension} "
-	fi
-
-	generic_command+="${sender_option} "
-	generic_command+="${sender_uid} "
-
-	for recipient in ${recipient_uid_list[@]}
-	do
-		generic_command+="${recipient_option} ${recipient} "
-	done
-
-	generic_command+="${encryption_system_option} ${file_path_placeholder}"
-
-	echo "$generic_command"
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-
-###############################################################################################
-
-function get_recipient_uid
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	while true
-	do
-
-		uid=""
-
-		echo "Enter the user-id of a RECIPIENT: or if really none, enter NONE"
-		read uid
-
-		if [ "$uid" = "NONE" ]; then break; fi
-
-		# TODO: later, also validate against known public keys in keyring
-		# test uid for valid email form
-		test_email_valid_form "$uid"
-		if [ $? -eq 0 ]
-		then
-			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
-
-			recipient_uid="$uid"
-			echo "One recipients user-id is now set to the value: $recipient_uid" && echo
-			recipient_uid_list+=( "${recipient_uid}" )
-			
-			echo "Any more recipients (whose public keys we hold) [y/n]?"
-			read more_recipients_answer
-
-			case $more_recipients_answer in
-			[yY])	echo "OK, another recipient requested...." && echo
-					continue
-					;;
-			[nN])	echo "OK, no more recipients needed...." && echo
-					break
-					;;
-			*)		echo "UNKNOWN RESPONSE...." && echo && sleep 2
-					echo "Entered the FAILSAFE BRANCH...." && echo && sleep 2
-					echo "ASSUMING AN AFFIRMATIVE RESPONSE...." && echo && sleep 2
-					continue
-					;;
-			esac
-
-		else
-			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..." && sleep 2
-			continue
-		fi
-		
-	done
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-###############################################################################################
-# 
-function get_sender_uid
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-
-	while true
-	do
-
-		uid=""
-
-		echo "Enter the user-id of the SENDER:"
-		read uid
-
-		# TODO: later, validate sender_uid HERE. IT MUST CORRESPOND TO ONE OF THE PRIVATE KEYS.
-		# test uid for valid email form
-		test_email_valid_form "$uid"
-		if [ $? -eq 0 ]
-		then
-			echo && echo "EMAIL ADDRESS \"$uid\" IS VALID"
-			
-			sender_uid="$uid"
-			echo "sender user-id is now set to the value: $sender_uid"
-			break
-		else
-			echo && echo "THAT'S NO VALID EMAIL ADDRESS, TRY AGAIN..."
-			continue # just in case we add more code after here
-		fi
-
-	done
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-###############################################################################################
-#
-function set_defaults
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	encryption_system="public_key" #default
-	output_file_format="ascii" #default
-
-	if [ $encryption_system == "public_key" ]
-	then
-		encryption_system_option='--encrypt'
-	elif [ $encryption_system == "symmetric_key" ]
-	then
-		encryption_system_option='--symmetric'
-	else
-		echo "FAILSAFE BRANCH ENTERED"
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
-	fi
-
-	if [ $output_file_format == "ascii" ]
-	then
-		output_file_extension=".asc" #default
-	elif [ $output_file_format == "binary" ]
-	then
-		output_file_extension=".gpg"
-	else
-		echo "FAILSAFE BRANCH ENTERED"
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
-	fi	
-
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-###############################################################################################
-###############################################################################################
-###############################################################################################
-# [ PUBLIC KEY || SYMMETRIC ] && [ ASCII || BINARY ]
-# MIGHT AS WELL ENUMERATE THE 4 POSSIBLE COMBINATIONS IN AN OPTION LIST! - (WITH A DEFAULT ASSUMED)
-function set_file_encryption_mode # 
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	while true
-	do
-
-		## reset variables:
-		mode_answer=""
-		
-		echo & echo
-		echo & echo "::: [ PUBLIC KEY || SYMMETRIC ]  &&  [ ASCII || BINARY ] :::"
-		echo & echo ":::  JUST PRESS ENTER FOR DEFAULT [PUBLIC KEY && ASCII]  :::"
-		echo & echo
-
-		read mode_answer
-
-		case $mode_answer in
-		[1])	# public key && ascii
-				set_defaults
-				break
-				;;
-		[2])	# public-key && binary
-				:
-				continue
-				;;
-		[3])	# symmetric && ascii
-				:
-				continue
-				;;
-		[4]) 	# symmetric && binary
-				:
-				continue
-				;;
-		*) 		echo "Normally, we'd just enter 1 - 4..." && sleep 1
-				echo "USING THE DEFAULT..." && sleep 1
-				set_defaults
-				break
-				;;
-		esac 
-
-	done
-
-	echo
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-###############################################################################################
-# list the keys available on the system
-# get the users' gpg user-id 
-# test that valid, ultimate trust fingerprint exists for that user-id
-function check_gpg_user_keys
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	userid=""
-
-	# issue gpg commands to list keys for now... just as a prompt of user-id details
-	bash -c "gpg --list-key"
-	bash -c "gpg --list-secret-keys"
-
-	# get the users' gpg UID from terminal
-	echo "Enter your user-id (example: order@entropism.org)"
-
-	read userid
-
-	# now check for a key-pair fingerprint. TODO: if not found, user should have the opportunity to try again
-	# TODO: THIS IS NOT THE RIGHT TEST, FIND SOMETHING BETTER LATER
-	bash -c "gpg --fingerprint "$userid" 2>/dev/null" # suppress stderr (but not stdout for now)
-	if [ $? -eq 0 ]
-	then
-		echo "KEY-PAIR FINGERPRINT IDENTIFIED FOR USER-ID OK"
-	else
-		echo "FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID"
-		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
-	fi
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-########################################################################################## 
-###############################################################################################
-# CODE TO ENCRYPT A SET OF FILES:
-###############################################################################################
-
-function gpg_file_encryption_service
-{
-
-	# 5. BASED ON PREVIOUSLY SELECTED SERVICE OPTION, CALL AN APPROPRIATE SCRIPT (although we'll do stuff here for now)
-
-	# sets the generic_command global
-	#create a generic file encryption command string for either public key or symmetric key encryption:
-
-	encrypt_result=
-	# 
-	check_gpg_user_keys # from user
-
-	set_file_encryption_mode
-
-	if [ $encryption_system = "public_key" ]
-	then
-		echo "encrytion_system is set to public-key, so we now need to request sender and recipient uids"
-
-		get_sender_uid
-		echo "sender user-id is now set to the value: $sender_uid"
-
-		get_recipient_uid
-		for recipient in ${recipient_uid_list[@]}
-		do
-			echo "From our array, a recipient is: ${recipient}"
-		done
-
-		create_generic_pub_key_encryption_command_string ## make this a public key specific one
-
-	else # encryption_system must be symmetric [make this into an elif]
-		create_generic_symmetric_key_encryption_command_string ##  make this a symmetric key specific one
-	fi
-
-	#create, then execute each file specific encryption command, then shred plaintext file:
-	for valid_path in "${incoming_array[@]}"
-	do
-		echo "about to execute on file: $valid_path"
-		execute_file_specific_encryption_command "$valid_path" #
-
-		# check that expected output file now exists, is accessible and has expected encypted file properties
-		verify_file_encryption_results "${valid_path}"
-		encrypt_result=$?
-		if [ $encrypt_result -eq 0 ]
-		then
-			echo && echo "SUCCESSFUL VERIFICATON OF ENCRYPTION encrypt_result: $encrypt_result"
-		else			
-			echo "FAILURE REPORT...ON STATE...encrypt_result: $encrypt_result"
-			exit 1 ### NEED AN EXIT REASON CODE HERE
-		fi	
-	done
-
-	# 6. SHRED THE PLAINTEXT FILES, NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
-
-	# first checking that the shred program is installed
-	which shred #&> /dev/null
-	if [ $? -eq 0 ]
-	then
-		shred_plaintext_files
-		verify_file_shred_results		
-	else
-		echo "FAILED TO FIND THE SHRED PROGRAM ON THIS SYSTEM, SO SKIPPED SHREDDING OF ORIGINAL PLAINTEXT FILES"
-	fi	
-
-	return $encrypt_result
-
-}
-
-
-###############################################################################################
-###############################################################################################
+################################################################################################
+################################################################################################
 
 # check that the OpenPGP tool gpg is installed on the system
 # check that the file_encrypter.sh program is accessible
@@ -1692,120 +1094,6 @@ function test_dir_path_access
 
 	return "$test_result"
 }
-###############################################################################################
-#########################################################################################################
-## SET GLOBAL VARIABLE service_index WRT A SPECIFIC SERVICE
-# CALL THE FUNCTIONS AND SCRIPTS THAT COMBINE TO PROVIDE THE REQUESTED SERVICE
-# 
-#function get_required_service
-# {
-#	
-#	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-#
-#	
-#	while true
-#	do
-#		
-#		service_option=""
-#		
-#		echo
-#		echo ">>>   :::   SELECT [SERVICE]   :::" # use cases
-#		echo
-#		echo 
-#		echo ">>>   [1] = GPG ENCRYPT one or more plaintext files"
-#		echo 
-#		echo ">>>   [2] = GPG DECRYPT one or more encrypted files"
-#		echo
-#		echo ">>>   [3] = GENERATE a new GPG public key encryption key-pair and MANAGE keys and certificates"
-#		echo
-#		echo ">>>   [4] = IMPORT GPG public key and backup keyring"
-#		echo
-#		echo ">>>   [5] = GPG ENCRYPT and SIGN one or more documents"
-#		echo
-#		echo ">>>   [6] = REVOKE a key and PUBLISH revoked"
-#		echo
-#		echo ">>>   [Q/q] = QUIT, leave, return contRol and exeet"
-#		echo
-#		echo
-#		echo ">>>   :::   THE FOLLOWING OPERATIONS BEST DONE MANUALLY, NOT BY THIS PROGRAM   :::" # use cases
-#		echo
-#		echo ">>>   [NULL] = IMPORTING public keys into keyrings"
-#		echo ">>>   [NULL] = SIGNING of imported keys using our private keys"
-#		echo ">>>   [NULL] = ...."
-#		echo
-#
-#		read service_option
-#
-#		echo "user has selected option: $service_option"
-#
-#		case $service_option in
-#		1)		# gpg file encryption service:
-#				service_index=1
-#				echo "YOU REQUESTED THE GPG FILE ENCRYPTION SERVICE"
-#
-#				# NOW WE MUST CHECK FOR PRE-REQUISITES:
-#				# does incoming_array have one or more elements?
-#				# ...
-#				if [ ${#incoming_array[@]} -gt 0 ]
-#				then
-#					gpg_file_encryption_service
-#					# result_code=$?
-#				else
-#					# this will soon be possible!
-#					echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
-#					exit "$E_INCORRECT_NUMBER_OF_ARGS"
-#				fi
-#				break
-#				;;
-#
-#		2)		# gpg decryption:
-#				service_index=2
-#				echo "YOU REQUESTED THE GPG FILE DECRYPTION SERVICE"
-#				continue
-#				;;
-#
-#		3)		# generate gpg public-key encryption key-pair and manage keys, keyrings and certificates:
-#				# backup public keyring
-#				# generate revocation certificate
-#				# encrypt and backup revocation certificate
-#				# backup exported public key
-#				service_index=3
-#				echo "YOU REQUESTED THE GPG PUBLIC KEY AND REVOCATION CERTIFICATE BACKUP SERVICE" && echo
-#
-#				generate_and_manage_keys
-#				break				
-#				;;
-#
-#		4)		# import GPG public key and backup keyring:
-#				service_index=4
-#				echo "YOU REQUESTED THE GPG PUBLIC KEY IMPORT AND KEYRING BACKUP SERVICE"
-#				continue
-#				;;
-#
-#		5)		# gpg document encryption and signing:
-#				service_index=5
-#				echo "YOU REQUESTED THE GPG DOCUMENT ENCRYPTION AND SIGNING SERVICE"
-#				continue
-#				;;
-#
-#		[Qq])	echo && echo "Goodbye!" && sleep 1
-#				exit 0
-#				;;
-#
-#		*)		# DEFAULT (FAILSAFE) CASE:
-#				echo "Just a simple 1-5 will do..." && sleep 2
-#				service_index=0
-#				continue
-#				;;
-#		esac 
-#
-#	done
-#
-#
-#	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-#
-#}
-#
 #########################################################################################################
 
 main "$@"; exit
