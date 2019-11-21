@@ -1,12 +1,12 @@
 # /etc/encryption_services_config
-# This is a WELL FORMED DUMMY configuration file for the encryption_services program.
+# This is a WELL FORMED SAMPLE configuration file for the encryption_services program.
 # Edit this as necessary for your filesystem
 # The directory paths specified here will determine how the program operates.
 # Comments and empty lines are ignored as usual.
 # THE FIRST LINE OF THIS CONFIGURATION FILE MUST BE A COMMENT 
 #
-# There can be no empty lines between variables and values, or between values assigned to the same variable.
-# Variable names are donoted by a string ending with the equals '=' character.
+# There can be no empty lines or comments between variables and values, or between values assigned to the 
+# same variable. Variable names are donoted by a string ending with the equals '=' character.
 
 ## ########### DIRECTORY IN WHICH WE WANT TO STORE THE FILES TO BE BACKED UP:  ########################
 
