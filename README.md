@@ -15,9 +15,9 @@ Providing GPG encryption services
 
 **encryption_services** is a set of utility shell scripts.
 
-One (file_encrypter.sh), encrypts all files it's passed in a way configurable by the user, or even normals, at runtime.
+One, (file_encrypter.sh), encrypts all files it's passed in a way configurable by the user, or even normals, at runtime.
 
-Another (key_generator_and_manager.sh), makes sure all the boring CIA requirements are met when I generate a new set of encryption keys.
+Another, (key_generator_and_manager.sh), makes sure all the boring CIA requirements are met when I generate a new set of encryption keys.
 
 These are part of my own system of __specialised tools__ for my own specific workflows.
 
