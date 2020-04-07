@@ -14,38 +14,10 @@
 
 function main
 {	
-	echo "USAGE: $(basename $0)"
-
-	# TEST COMMAND LINE ARGS
-	if [ $# -gt 0 ]
-	then
-		echo "Incorrect number of command line args. Exiting now..."
-		echo "Usage: $(basename $0)"
-		exit $E_INCORRECT_NUMBER_OF_ARGS
-	fi
-
-	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
-
-	# Display a program header and give user option to leave if here in error:
-	echo
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo -e "		\033[33m||        Welcome to KEY GENERATION AND MANAGEMENT UTILITY        ||  author: adebayo10k\033[0m";  
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo
-	echo " Type q to quit NOW, or press ENTER to continue."
-	echo && sleep 1
-
-	# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
-	read last_chance
-	case $last_chance in 
-	[qQ])	echo
-			echo "Goodbye!" && sleep 1
-			exit 0
-				;;
-	*) 		echo "You're IN..." && echo && sleep 1
-				;;
-	esac 
-		
+	###############################################################################################
+	# GLOBAL VARIABLE DECLARATIONS:
+	###############################################################################################
+	
 	## EXIT CODES:
 	E_UNEXPECTED_BRANCH_ENTERED=10
 	E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
@@ -67,9 +39,8 @@ function main
 
 	###############################################################################################
 
-	# GLOBAL VARIABLE DECLARATIONS:
-
-	config_file_fullpath= # a full path to a file
+	no_of_program_parameters=0
+	config_file_fullpath="/etc/key_generator_and_manager.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
@@ -115,11 +86,11 @@ function main
 	
 	###############################################################################################
 
-	config_file_fullpath="/etc/key_generator_and_manager.config"
-
-	echo "Opening an editor now..." && echo && sleep 2
-    sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
-    # also, no need to validate config file path here, since we've just edited the config file!
+	verify_program_args
+	display_program_header
+	get_user_permission_to_proceed
+	display_current_config_file
+	get_user_config_edit_decision
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
 	import_encryption_services_configuration
@@ -138,7 +109,7 @@ function main
 	# ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
 	echo "key_generator_and_manager exit code: $?" 
 
-} ## end main
+} ## end main function
 
 
 
@@ -157,9 +128,84 @@ function main
 
 
 
+###############################################################################################
+function verify_program_args(){
 
+	echo "USAGE: $(basename $0)"
 
+	# TEST COMMAND LINE ARGS
+	if [ $# -ne $no_of_program_parameters ]
+	then
+		echo "Incorrect number of command line args. Exiting now..."
+		echo "Usage: $(basename $0)"
+		exit $E_INCORRECT_NUMBER_OF_ARGS
+	fi
 
+	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
+
+}
+
+###############################################################################################
+function display_program_header(){
+
+	# Display a program header and give user option to leave if here in error:
+	echo
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo -e "		\033[33m||        Welcome to KEY GENERATION AND MANAGEMENT UTILITY        ||  author: adebayo10k\033[0m";  
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo
+		
+}
+
+###############################################################################################
+function get_user_permission_to_proceed(){
+
+	echo " Type q to quit program NOW, or press ENTER to continue."
+	echo && sleep 1
+
+	# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
+	read last_chance
+	case $last_chance in 
+	[qQ])	echo
+			echo "Goodbye!" && sleep 1
+			exit 0
+				;;
+	*) 		echo "You're IN..." && echo && sleep 1
+				;;
+	esac 
+
+}
+
+###############################################################################################
+function display_current_config_file(){
+	
+	echo && echo CURRENT CONFIGURATION FILE...
+	echo && sleep 1
+
+	cat "$config_file_fullpath"
+}
+
+###############################################################################################
+function get_user_config_edit_decision(){
+
+	echo " Edit configuration file? [Y/N]"
+	echo && sleep 1
+
+	read edit_config
+	case $edit_config in 
+	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
+    		sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    		# also, no need to validate config file path here, since we've just edited the config file!
+				;;
+	[nN])	echo
+			echo " Ok, using the  current configuration" && sleep 1
+				;;			
+	*) 		echo " Give me a Y or N..." && echo && sleep 1
+			get_user_config_edit_decision
+				;;
+	esac 
+	
+}
 
 ###############################################################################################
 function create_all_synchronised_dirs()
