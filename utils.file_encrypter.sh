@@ -14,30 +14,8 @@
 
 function main
 {	
-	echo "USAGE: $(basename $0) <[<absolute file path>...]" # one or more strings (representing fullpaths to files)
+	# GLOBAL VARIABLE DECLARATIONS:
 
-	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
-
-	# Display a program header and give user option to leave if here in error:
-	echo
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo -e "		\033[33m||            Welcome to the FILE ENCRYPTER UTILITY               ||  author: adebayo10k\033[0m";  
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo
-	echo " Type q to quit NOW, or press ENTER to continue."
-	echo && sleep 1
-
-	# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
-	read last_chance
-	case $last_chance in 
-	[qQ])	echo
-			echo "Goodbye!" && sleep 1
-			exit 0
-				;;
-	*) 		echo "You're IN..." && echo && sleep 1
-				;;
-	esac 
-		
 	## EXIT CODES:
 	E_UNEXPECTED_BRANCH_ENTERED=10
 	E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
@@ -59,13 +37,15 @@ function main
 
 	###############################################################################################
 
-	# GLOBAL VARIABLE DECLARATIONS:
+	no_of_program_parameters=$#
+	tutti_param_string="$@"
 
-	config_file_fullpath= # a full path to a file
+	echo $tutti_param_string
+
+	
+	config_file_fullpath="/etc/file_encrypter.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
-
-	#service_index= # service number of selected service
 
 	declare -a incoming_array=()
 
@@ -95,28 +75,11 @@ function main
 	generic_command=""
 	file_specific_command=""
 
-	#plaintext_file_fullpath=""
-	#plaintext_dir_fullpath="" # now only used locally
-
     abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 	all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
 	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
 	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
 	# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
-
-	#synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
-	#public_keyring_default_directory_fullpath=
-	#revocation_certificate_default_directory_fullpath=
-#
-	#this_host=$(hostname) #
-	#synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath (only written to by this_host)
-	#declare -a synchronised_subdirs=() # set of directories within synchronised_dir_fullpath
-#
-	#new_keygen_OK=
-	#new_key_rev_cert_OK=
-	#rev_cert_encrypt_OK=
-	#rev_certs_moved_OK=
-	#public_key_export_OK=
 
 	##################################################
 
@@ -133,50 +96,24 @@ function main
 	export script_root_dir	
 
 	###############################################################################################
-
-	echo
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "STARTING THE \"VALIDATE ARGS PASSED TO SCRIPT\" SECTION in script $(basename $0)"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo
-
-	read
-
-	# 1. SET HOW MANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
-	number_of_incoming_params=$#
-	echo "Number of arguments passed in = $number_of_incoming_params"
-
-	# if one or more args put them into an array 
-	if [ $number_of_incoming_params -gt 0 ]
-	then
-		incoming_array=( "$@" )
-		verify_program_args
-	else
-		echo "Incorrect number of command line args. Exiting now..."
-		echo "Usage: $(basename $0) [<absolute file path>...]"
-		exit $E_INCORRECT_NUMBER_OF_ARGS
-	fi
-
-	config_file_fullpath="/etc/file_encrypter.config"
-
-	# issue gpg commands to list keys for now... just to see what's there
-	bash -c "gpg --list-key"
-	bash -c "gpg --list-secret-keys"
-
-	echo "Press any key to continue..."
-	read
-
-	echo "Opening your editor now..." && echo && sleep 2
-    sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
-    # also, no need to validate config file path here, since we've just edited the config file!
-
+	
+	display_program_header	
+	get_user_permission_to_proceed
+	validate_program_args
+	display_current_config_file
+	get_user_config_edit_decision
+	
 	check_config_file_content
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
 	import_encryption_services_configuration
 	
-	## 4. CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
+	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 	#check_encryption_platform
+
+	# issue gpg commands to list keys for now... just to see what's there
+	bash -c "gpg --list-key"
+	bash -c "gpg --list-secret-keys"
 
 	if [ ${#incoming_array[@]} -gt 0 ]
 	then
@@ -204,15 +141,102 @@ function main
 
 
 
-
-
-
-
-
 ###############################################################################################
 #### vvvvv FUNCTION DECLARATIONS  vvvvv
 ###############################################################################################
 # 
+
+
+
+
+
+
+
+
+
+####################################################################################################
+function validate_program_args()
+{
+#
+	# 1. VALIDATE ANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
+	echo "Number of arguments passed in = $no_of_program_parameters"
+
+	# if one or more args put them into an array 
+	if [ $no_of_program_parameters -gt 0 ]
+	then
+		incoming_array=( "$tutti_param_string" ) 
+		verify_program_args
+	else
+		echo "Incorrect number of command line args. Exiting now..."
+		echo "Usage: $(basename $0) [<absolute file path>...]"
+		exit $E_INCORRECT_NUMBER_OF_ARGS
+	fi
+
+}
+
+####################################################################################################
+function display_program_header()
+{
+	echo "USAGE: $(basename $0) <[<absolute file path>...]" # one or more strings (representing fullpaths to files)
+
+	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
+
+	# Display a program header and give user option to leave if here in error:
+	echo
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo -e "		\033[33m||            Welcome to the FILE ENCRYPTER UTILITY               ||  author: adebayo10k\033[0m";  
+	echo -e "		\033[33m===================================================================\033[0m";
+	echo
+}
+
+####################################################################################################
+function get_user_permission_to_proceed()
+{
+	echo " Type q to quit NOW, or press ENTER to continue."
+	echo && sleep 1
+
+	# TODO: if the shell level is -ge 2, called from another script so bypass this exit option
+	read last_chance
+	case $last_chance in 
+	[qQ])	echo
+			echo "Goodbye!" && sleep 1
+			exit 0
+				;;
+	*) 		echo "You're IN..." && echo && sleep 1
+				;;
+	esac 
+}
+
+####################################################################################################
+function display_current_config_file()
+{
+	echo && echo CURRENT CONFIGURATION FILE...
+	echo && sleep 1
+
+	cat "$config_file_fullpath"
+}
+
+####################################################################################################
+function get_user_config_edit_decision()
+{
+	echo " Edit configuration file? [Y/N]"
+	echo && sleep 1
+
+	read edit_config
+	case $edit_config in 
+	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
+    		sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    		# also, no need to validate config file path here, since we've just edited the config file!
+				;;
+	[nN])	echo
+			echo " Ok, using the  current configuration" && sleep 1
+				;;			
+	*) 		echo " Give me a Y or N..." && echo && sleep 1
+			get_user_config_edit_decision
+				;;
+	esac 
+	
+}
 
 ####################################################################################################
 #
@@ -810,13 +834,15 @@ function check_encryption_platform
 	if [ $? -eq 0 ]
 	then
 		echo "OpenPGP PROGRAM INSTALLED ON THIS SYSTEM OK"
+		# issue gpg commands to list keys for now... just to see what's there
+		bash -c "gpg --list-key"
+		bash -c "gpg --list-secret-keys"
 	else
 		echo "FAILED TO FIND THE REQUIRED OpenPGP PROGRAM"
 		# -> exit due to failure of any of the above tests:
 		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
 		exit $E_REQUIRED_PROGRAM_NOT_FOUND
 	fi
-
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
