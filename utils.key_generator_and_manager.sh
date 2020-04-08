@@ -39,7 +39,9 @@ function main
 
 	###############################################################################################
 
-	no_of_program_parameters=0
+	expected_no_of_program_parameters=0
+	actual_no_of_program_parameters=$#
+
 	config_file_fullpath="/etc/key_generator_and_manager.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
@@ -134,7 +136,7 @@ function verify_program_args(){
 	echo "USAGE: $(basename $0)"
 
 	# TEST COMMAND LINE ARGS
-	if [ $# -ne $no_of_program_parameters ]
+	if [ $actual_no_of_program_parameters -ne $expected_no_of_program_parameters ]
 	then
 		echo "Incorrect number of command line args. Exiting now..."
 		echo "Usage: $(basename $0)"
