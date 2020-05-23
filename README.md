@@ -33,7 +33,7 @@ Encrypt one or more files using configured parameters.
 6. file_encrypter.sh __shows user the command__ it intends to execute.
 7. If user (just me) gives the ok, file_encrypter.sh __executes a specific command for each file__ and __tests the resulting postconditions__.
 8. file_encrypter.sh __presents the results__ to the user.
-9. file_encrypter.sh __checks whether the shred program is available__ to the user and if so, __offers to shred the original plaintext files__.
+9. file_encrypter.sh __checks whether the /usr/bin/shred program is available__ to the user and if so, __offers to shred the original plaintext files__.
 10. file_encrypter.sh returns control to the calling program.
 
 **Typical use case for key_generator_and_manager.sh:**
