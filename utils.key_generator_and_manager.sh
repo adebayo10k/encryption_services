@@ -1,5 +1,5 @@
 #!/bin/bash
-#: Title		:key_generator_and_manager.sh
+#: Title		:key-generator-and-manager.sh
 #: Date			:2019-11-15
 #: Author		:adebayo10k
 #: Version		:1.0
@@ -424,7 +424,7 @@ function encrypt_revocation_certificates
 	
 	# we first just need to populate file_fullpaths_to_encrypt array
 	# we'll also append a list of fingerprints in a synchornised location file
-	# we'll use file_fullpaths_to_encrypt to create a string and pass it into file_encrypter.sh
+	# we'll use file_fullpaths_to_encrypt to create a string and pass it into file-encrypter.sh
 	for file in "${revocation_certificate_default_directory_fullpath}"/*
 	do
 		#incoming_array+=( "${file}" )
@@ -441,7 +441,7 @@ function encrypt_revocation_certificates
 
 	# BASH ARRAYS ARE NOT 'FIRST CLASS VALUES' SO CAN'T BE PASSED AROUND LIKE ONE THING\
 	# - so since we're only intending to make a single call\
-	# to file_encrypter.sh, we need to make an IFS separated string argument
+	# to file-encrypter.sh, we need to make an IFS separated string argument
 	for filename in "${file_fullpaths_to_encrypt[@]}"
 	do
 		#echo "888888888888888888888888888888888888888888888888888888888888888888"
@@ -460,13 +460,13 @@ function encrypt_revocation_certificates
 	# our encryption script takes care of shredding everything it encrypts!
 	# TODO: THINK... WE COULD ENCRYPT WITH A DIFFERENT KEY - A KEY FOR THIS PURPOSE ONLY?
 	
-	echo && echo "JUST ABOUT TO CALL file_encrypter.sh ..."
+	echo && echo "JUST ABOUT TO CALL file-encrypter.sh ..."
 
-	# ... so, we call file_encrypter.sh script to handle the file encryption job
+	# ... so, we call file-encrypter.sh script to handle the file encryption job
 	# the command argument is deliberately unquoted, so the default space character IFS DOES separate\
 	# the string into arguments
 	# we can use ANY available private key for this, not just the newly generated one! tell the user!
-	file_encrypter.sh $string_to_send
+	file-encrypter.sh $string_to_send
 
 	encrypt_result=$?
 	if [ $encrypt_result -eq 0 ]
@@ -865,7 +865,7 @@ function generate_and_manage_keys
 ################################################################################################
 
 # check that the OpenPGP tool gpg is installed on the system
-# check that the file_encrypter.sh program is accessible
+# check that the file-encrypter.sh program is accessible
 function check_encryption_platform
 {
 		
@@ -883,12 +883,12 @@ function check_encryption_platform
 	fi
 
 	# we test for the existence of a known script that provides encryption services:
-	which file_encrypter.sh
+	which file-encrypter.sh
 	if [ $? -eq 0 ]
 	then
-		echo "THE file_encrypter.sh PROGRAM WAS FOUND TO BE INSTALLED OK ON THIS HOST SYSTEM"	
+		echo "THE file-encrypter.sh PROGRAM WAS FOUND TO BE INSTALLED OK ON THIS HOST SYSTEM"	
 	else
-		echo "FAILED TO FIND THE file_encrypter.sh PROGRAM ON THIS SYSTEM, SO NO NOTHING LEFT TO DO BUT EXEET, GOODBYE"
+		echo "FAILED TO FIND THE file-encrypter.sh PROGRAM ON THIS SYSTEM, SO NO NOTHING LEFT TO DO BUT EXEET, GOODBYE"
 		exit $E_REQUIRED_PROGRAM_NOT_FOUND
 	fi	
 
@@ -1162,7 +1162,7 @@ main "$@"; exit
 
 ###############################################################################################
 
-## USE CASE - CALLED BY audit_list_maker TO GPG ENCRYPT A SINGLE FILE
+## USE CASE - CALLED BY audit-list-maker.sh TO GPG ENCRYPT A SINGLE FILE
 
 # FOR ENCRYPTION OF A SINGLE FILE, ALL es EVER NEEDS TO BE PASSED AS A PARAMETER IS THE ABSOLUTE PATH FILENAME OF THE 
 # PLAINTEXT FILE. IT CAN GET EVERYTHING ELSE IT NEEDS EITHER FROM CONFIGURATION FILE DEFAULTS, OR FROM THE USER.

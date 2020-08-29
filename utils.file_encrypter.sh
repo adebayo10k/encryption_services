@@ -1,5 +1,5 @@
 #!/bin/bash
-#: Title		:file_encrypter.sh
+#: Title		:file-encrypter.sh
 #: Date			:2019-11-14
 #: Author		:adebayo10k
 #: Version		:1.0
@@ -43,7 +43,7 @@ function main
 	echo $tutti_param_string
 
 	
-	config_file_fullpath="/etc/file_encrypter.config" # a full path to a file
+	config_file_fullpath="/etc/file-encrypter.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
@@ -127,7 +127,7 @@ function main
 	
 	
 	# 7. ON RETURN OF CONTROL, CHECK FOR DESIRED POSTCONDITIONS
-	echo "file_encrypter exit code: $?" 
+	echo "file-encrypter exit code: $?" 
 
 } ## end main
 
@@ -1167,7 +1167,7 @@ main "$@"; exit
 
 ###############################################################################################
 
-## USE CASE - CALLED BY audit_list_maker TO GPG ENCRYPT A SINGLE FILE
+## USE CASE - CALLED BY audit-list-maker.sh TO GPG ENCRYPT A SINGLE FILE
 
 # FOR ENCRYPTION OF A SINGLE FILE, ALL es EVER NEEDS TO BE PASSED AS A PARAMETER IS THE ABSOLUTE PATH FILENAME OF THE 
 # PLAINTEXT FILE. IT CAN GET EVERYTHING ELSE IT NEEDS EITHER FROM CONFIGURATION FILE DEFAULTS, OR FROM THE USER.
