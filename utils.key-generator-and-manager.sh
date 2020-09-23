@@ -42,7 +42,7 @@ function main
 	expected_no_of_program_parameters=0
 	actual_no_of_program_parameters=$#
 
-	config_file_fullpath="/etc/key_generator_and_manager.config" # a full path to a file
+	config_file_fullpath="/etc/key-generator-and-manager.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
