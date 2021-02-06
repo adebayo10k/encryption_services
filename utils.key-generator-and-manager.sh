@@ -58,15 +58,15 @@ function main
 	output_option='--output'
 	file_path_placeholder='<filepath_placeholder>'
 
-    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
-	all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
+    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
+	all_filepath_regex='^(/?[A-Za-z0-9\.\ _~:@-]+)+(/)?$' # both relative and absolute file path
 	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
 	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
 	# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
 
 	synchronised_location_holding_dir_fullpath= # OR synchronised_location_parent_directory
 	public_keyring_default_directory_fullpath=
-	revocation_certificate_default_directory_fullpath=
+	revocation_certificate_default_directory_fullpath="${HOME}/.gnupg/openpgp-revocs.d"
 
 	this_host=$(hostname) #
 	synchronised_dir_fullpath= # directory within synchronised_location_holding_dir_fullpath (only written to by this_host)
@@ -95,7 +95,7 @@ function main
 	get_user_config_edit_decision
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-	import_encryption_services_configuration
+	import_key_management_configuration
 
 	create_all_synchronised_dirs
 
@@ -275,7 +275,7 @@ function create_all_synchronised_dirs()
 }
 ####################################################################################################
 #
-function import_encryption_services_configuration()
+function import_key_management_configuration()
 {
 
 echo
@@ -295,8 +295,9 @@ get_config_values_for_all_dirs
 # NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
 # REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
 
-for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
-	"$revocation_certificate_default_directory_fullpath"
+#for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
+#	"$revocation_certificate_default_directory_fullpath"
+for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"
 do
 	# this valid form test works for sanitised directory paths too
 	test_file_path_valid_form "$dir"
@@ -708,7 +709,7 @@ function generate_and_manage_keys
 
 	echo && echo "[1] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
 	echo && echo "...WAIT ...YOU'RE ABOUT TO BE ASKED FOR SOME KEY GENERATION PARAMETERS..."	
-	sleep 12
+	sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	
 	generate_public_keypair
 
@@ -770,12 +771,12 @@ function generate_and_manage_keys
 	if [ $new_key_rev_cert_OK = true ]
 	then
 		echo && echo "[4] EXISTENCE OF REVOCATION CERT. GENERATION DEPENDENCY CONFIRMED OK" && echo
-		echo && echo "...WAIT"	
-		sleep 12
+		echo && echo "...WAIT ...YOU'RE ABOUT TO BE ASKED FOR SOME ENCRYPTION PARAMETERS..."	
+		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
 		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION..."
-		echo && echo "...WAIT ...YOU'RE ABOUT TO BE ASKED FOR SOME ENCRYPTION PARAMETERS..."	
+		echo && echo "...WAIT"	
 		sleep 4
 		exit $E_UNEXPECTED_ARG_VALUE
 	fi
@@ -794,7 +795,7 @@ function generate_and_manage_keys
 	then
 		echo && echo "[5] EXISTENCE OF REVOCATION CERT. ENCRYPTION DEPENDENCY CONFIRMED OK" && echo
 		echo && echo "...WAIT"	
-		sleep 12
+		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
 		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION..."
@@ -818,7 +819,7 @@ function generate_and_manage_keys
 	then
 		echo && echo "[6] EXISTENCE OF KEY GENERATION DEPENDENCY CONFIRMED OK" && echo
 		echo && echo "...WAIT"	
-		sleep 12
+		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
 		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION"
@@ -841,7 +842,7 @@ function generate_and_manage_keys
 	then
 		echo && echo "[7] EXISTENCE OF PUBLIC KEYS EXPORT CONFIRMED OK" && echo
 		echo && echo "...WAIT"	
-		sleep 12
+		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
 		echo && echo "ABORTING DUE TO FAILURE OF PUBLIC KEYS EXPORT"
@@ -874,9 +875,9 @@ function check_encryption_platform
 	bash -c "which gpg 2>/dev/null" # suppress stderr (but not stdout for now)
 	if [ $? -eq 0 ]
 	then
-		echo "OpenPGP PROGRAM INSTALLED ON THIS SYSTEM OK"
+		echo "GnuPG implementation of the OpenPGP standard INSTALLED ON THIS SYSTEM OK"
 	else
-		echo "FAILED TO FIND THE REQUIRED OpenPGP PROGRAM"
+		echo "FAILED TO FIND THE REQUIRED OpenPGP implementing PROGRAM"
 		# -> exit due to failure of any of the above tests:
 		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
 		exit $E_REQUIRED_PROGRAM_NOT_FOUND
@@ -1036,6 +1037,7 @@ function get_config_values_for_all_dirs
 		then
 			revocation_certificate_default_directory_fullpath="$1"
 			# test_line just set globally in sanitise_absolute_path_value function
+			#revocation_certificate_default_directory_fullpath="${HOME}/.gnupg/openpgp-revocs.d"
 		else
 			echo "Failsafe branch entered"
 			exit $E_UNEXPECTED_BRANCH_ENTERED
@@ -1049,6 +1051,8 @@ function get_config_values_for_all_dirs
 	done
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
+
+	#read	## debug
 
 }
 

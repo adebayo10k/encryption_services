@@ -75,8 +75,8 @@ function main
 	generic_command=""
 	file_specific_command=""
 
-    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _-~]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
-	all_filepath_regex='^(/?[A-Za-z0-9\._-~]+)+$' # both relative and absolute file path
+    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, placing dash at the end!...
+	all_filepath_regex='^(/?[A-Za-z0-9\.\ _~:@-]+)+$' # both relative and absolute file path
 	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
 	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
 	# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
@@ -97,6 +97,21 @@ function main
 
 	###############################################################################################
 	
+	#test_file_path_valid_form "/home/damola/.gnupg/openpgp-revocs.d/revoke_cert_laptop-E6520_2021-02-04@19:29:24.#asc"
+	##test_file_path_valid_form "/home/damola/.gnupg/openpgp-revocs.d"
+	#return_code=$?
+	#if [ $return_code -eq 0 ]
+	#then
+	#	#echo $incoming_arg
+	#	echo "VALID FORM TEST PASSED" && echo
+	#else
+	#	echo "The valid form test FAILED and returned: $return_code"
+	#	echo "Nothing to do now, but to exit..." && echo
+	#	exit $E_UNEXPECTED_ARG_VALUE
+	#fi
+#
+	#exit 0
+
 	display_program_header	
 	get_user_permission_to_proceed
 	validate_program_args
@@ -106,7 +121,7 @@ function main
 	check_config_file_content
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-	import_encryption_services_configuration
+	import_file_encryption_configuration
 	
 	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 	#check_encryption_platform
@@ -164,7 +179,11 @@ function validate_program_args()
 	# if one or more args put them into an array 
 	if [ $no_of_program_parameters -gt 0 ]
 	then
-		incoming_array=( "$tutti_param_string" ) 
+		#echo "IFS: -$IFS+"
+		incoming_array=( $tutti_param_string )
+		echo "incoming_array[0]: ${incoming_array[0]}"
+		echo "incoming_array[1]: ${incoming_array[1]}"
+		echo "incoming_array[2]: ${incoming_array[2]}"
 		verify_program_args
 	else
 		echo "Incorrect number of command line args. Exiting now..."
@@ -240,7 +259,7 @@ function get_user_config_edit_decision()
 
 ####################################################################################################
 #
-function import_encryption_services_configuration()
+function import_file_encryption_configuration()
 {
 
 	echo
@@ -292,9 +311,10 @@ function verify_program_args
 
 	# give user the opportunity to confirm argument values?
 	# get rid of this if feels like overkill
+	echo "incoming_array is of size: ${#incoming_array[@]}" && echo
 	for incoming_arg in "${incoming_array[@]}"
 	do
-		echo "$incoming_arg"
+		echo "$incoming_arg" && echo
 	done
 	
 	# if any of the args is not in the form of an absolute file path, exit program.
