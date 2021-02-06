@@ -1,4 +1,4 @@
-# /etc/key-generator-and_manager.config
+# /etc/key-generator-and_manager.config.SAMPLE
 # This is a WELL FORMED SAMPLE configuration file for the key_generator_and_manager program.
 # Edit this as necessary for your filesystem
 # The directory paths specified here will determine how the program operates.
@@ -32,7 +32,7 @@ public_keyring_default_directory_fullpath=
 
 # revocation_certificate_default_directory_fullpath variable:
 # The standard, default location for pre-generated GnuPG revocation certificates on linux systems
-
+## NOTE: THIS DIRECTORY DOESN'T EXIST UNTIL AFTER KEYS HAVE BEEN MADE FOR THE FIRST TIME!
 revocation_certificate_default_directory_fullpath=
 /home/algo/.gnupg/openpgp-revocs.d/
 
