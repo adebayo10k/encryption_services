@@ -81,10 +81,9 @@ function main
 	##################################################
 
 	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
-	echo "The absolute path to this script is: $0"
-	script_root_dir="${0%'/'*}" 
-	echo "Script root directory set to: $script_root_dir"
-	export script_root_dir
+	echo "The absolute path to this script is:		$0"
+	echo "Script root directory set to:		$(dirname $0)"
+	echo "Script filename set to:			$(basename $0)" && echo
 	
 	###############################################################################################
 

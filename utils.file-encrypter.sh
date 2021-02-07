@@ -85,33 +85,12 @@ function main
 
 	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
 	# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
-	echo "The absolute path to this script is: $0"
-	## UNLESS SCRIPT 'SOMEHOW' SITS IN THE ROOT DIRECTORY, IN WHICH CASE WE'D JUST REMOVE "$(basename $0)"
-	## remove from end of full path to script:
-	# 1. a directory delimiter
-	# 2. the basename (or everything following the delimiter)
-	#script_root_dir="${0%'/'"$(basename $0)"}"
-	script_root_dir="${0%'/'*}" 
-	echo "Script root directory set to: $script_root_dir"
-	export script_root_dir	
+	echo "The absolute path to this script is:		$0"
+	echo "Script root directory set to:		$(dirname $0)"
+	echo "Script filename set to:			$(basename $0)" && echo
 
 	###############################################################################################
-	
-	#test_file_path_valid_form "/home/damola/.gnupg/openpgp-revocs.d/revoke_cert_laptop-E6520_2021-02-04@19:29:24.#asc"
-	##test_file_path_valid_form "/home/damola/.gnupg/openpgp-revocs.d"
-	#return_code=$?
-	#if [ $return_code -eq 0 ]
-	#then
-	#	#echo $incoming_arg
-	#	echo "VALID FORM TEST PASSED" && echo
-	#else
-	#	echo "The valid form test FAILED and returned: $return_code"
-	#	echo "Nothing to do now, but to exit..." && echo
-	#	exit $E_UNEXPECTED_ARG_VALUE
-	#fi
-#
-	#exit 0
-
+		
 	display_program_header	
 	get_user_permission_to_proceed
 	validate_program_args
@@ -152,18 +131,10 @@ function main
 
 
 
-
-
-
-
 ###############################################################################################
 #### vvvvv FUNCTION DECLARATIONS  vvvvv
 ###############################################################################################
 # 
-
-
-
-
 
 
 
