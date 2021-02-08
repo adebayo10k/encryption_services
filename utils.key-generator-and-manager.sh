@@ -78,23 +78,63 @@ function main
 	rev_certs_moved_OK=
 	public_key_export_OK=
 
-	##################################################
-
-	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
-	echo "The absolute path to this script is:		$0"
-	echo "Script root directory set to:		$(dirname $0)"
-	echo "Script filename set to:			$(basename $0)" && echo
+	##################################################	
 	
 	###############################################################################################
+	# 'SHOW STOPPER' CHECKING FUNCTION CALLS:	
+	###############################################################################################
 
-	verify_program_args
-	display_program_header
-	get_user_permission_to_proceed
-	display_current_config_file
-	get_user_config_edit_decision
+	# verify and validate program positional parameters
+	verify_and_validate_program_arguments
 
-	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-	import_key_management_configuration
+	#declare -a authorised_host_list=($E530c_hostname $E6520_hostname $E5490_hostname)
+
+	# entry test to prevent running this program on an inappropriate host
+	# entry tests apply only to those highly host-specific or filesystem-specific programs that are hard to generalise
+	if [[ $(declare -a | grep "authorised_host_list" 2>/dev/null) ]]; then
+		entry_test
+	else
+		echo "entry test skipped..." && sleep 2 && echo
+	fi
+
+
+	###############################################################################################
+	# $SHLVL DEPENDENT FUNCTION CALLS:	
+	###############################################################################################
+	# using $SHLVL to show whether this script was called from another script, or from command line
+	if [ $SHLVL -le 2 ]
+	then
+		# Display a descriptive and informational program header:
+		display_program_header
+
+		# give user option to leave if here in error:
+		get_user_permission_to_proceed
+	fi
+
+
+	###############################################################################################
+	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
+	###############################################################################################
+
+	if [ -n "$config_file_fullpath" ]
+	then
+		display_current_config_file
+
+
+		get_user_config_edit_decision
+
+		# test whether the configuration files' format is valid, and that each line contains something we're expecting
+		validate_config_file_content
+
+		# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+		import_key_management_configuration
+	fi
+
+	#exit 0 #debug
+
+	###############################################################################################
+	# PROGRAM-SPECIFIC FUNCTION CALLS:	
+	###############################################################################################
 
 	create_all_synchronised_dirs
 
@@ -115,22 +155,19 @@ function main
 
 
 
+###############################################################################################
+####  FUNCTION DECLARATIONS  
+###############################################################################################
 
-
-
-
+# entry test to prevent running this program on an inappropriate host
+function entry_test()
+{
+	#
+	:
+}
 
 ###############################################################################################
-#### vvvvv FUNCTION DECLARATIONS  vvvvv
-###############################################################################################
-# 
-
-
-
-
-
-###############################################################################################
-function verify_program_args(){
+function verify_and_validate_program_arguments(){
 
 	echo "USAGE: $(basename $0)"
 
@@ -147,18 +184,24 @@ function verify_program_args(){
 }
 
 ###############################################################################################
+# Display a program header:
 function display_program_header(){
 
-	# Display a program header and give user option to leave if here in error:
 	echo
 	echo -e "		\033[33m===================================================================\033[0m";
 	echo -e "		\033[33m||        Welcome to KEY GENERATION AND MANAGEMENT UTILITY        ||  author: adebayo10k\033[0m";  
 	echo -e "		\033[33m===================================================================\033[0m";
 	echo
+
+	# REPORT SOME SCRIPT META-DATA
+	echo "The absolute path to this script is:	$0"
+	echo "Script root directory set to:		$(dirname $0)"
+	echo "Script filename set to:			$(basename $0)" && echo
 		
 }
 
 ###############################################################################################
+# give user option to leave if here in error:
 function get_user_permission_to_proceed(){
 
 	echo " Type q to quit program NOW, or press ENTER to continue."
@@ -196,7 +239,7 @@ function get_user_config_edit_decision(){
 	case $edit_config in 
 	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
     		sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
-    		# also, no need to validate config file path here, since we've just edited the config file!
+    		# TODO: Should we now validate the configuration file again?
 				;;
 	[nN])	echo
 			echo " Ok, using the  current configuration" && sleep 1
@@ -206,6 +249,32 @@ function get_user_config_edit_decision(){
 				;;
 	esac 
 	
+}
+
+###############################################################################################
+# test whether the configuration files' format is valid,
+# and that each line contains something we're expecting
+function validate_config_file_content()
+{
+	while read lineIn
+	do
+		# any content problems handled in the test_and_set_line_type function:
+        test_and_set_line_type "$lineIn"
+        return_code="$?"
+        echo "return code for tests on that line was: $return_code"
+        if [ $return_code -eq 0 ]
+        then
+            # tested line must have contained expected content
+            # this function has no need to know which type of line it was
+            echo "That line was expected!" && echo
+        else
+            echo "That line was NOT expected!"
+            echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
+            exit 1
+        fi
+
+	done < "$config_file_fullpath" 
+
 }
 
 ###############################################################################################
@@ -277,11 +346,7 @@ function create_all_synchronised_dirs()
 function import_key_management_configuration()
 {
 
-echo
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "STARTING THE 'IMPORT CONFIGURATION INTO VARIABLES' PHASE in script $(basename $0)"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo
+echo  "Press ENTER to start importing..." && echo
 
 read
 

@@ -14,7 +14,9 @@
 
 function main
 {	
+	###############################################################################################
 	# GLOBAL VARIABLE DECLARATIONS:
+	###############################################################################################
 
 	## EXIT CODES:
 	E_UNEXPECTED_BRANCH_ENTERED=10
@@ -40,8 +42,7 @@ function main
 	no_of_program_parameters=$#
 	tutti_param_string="$@"
 
-	echo $tutti_param_string
-
+	#echo $tutti_param_string
 	
 	config_file_fullpath="/etc/file-encrypter.config" # a full path to a file
 	line_type="" # global...
@@ -83,25 +84,64 @@ function main
 
 	##################################################
 
-	# SET THE 'SCRIPT ROOT' DIRECTORY IN WHICH THIS SCRIPT CURRENTLY FINDS ITSELF
-	# NOTE: if soft-linked from an executables PATH directory, this gives the path to the link
-	echo "The absolute path to this script is:		$0"
-	echo "Script root directory set to:		$(dirname $0)"
-	echo "Script filename set to:			$(basename $0)" && echo
+	###############################################################################################
+	# 'SHOW STOPPER' CHECKING FUNCTION CALLS:	
+	###############################################################################################
+
+	# verify and validate program positional parameters
+	verify_and_validate_program_arguments
+
+	#declare -a authorised_host_list=($E530c_hostname $E6520_hostname $E5490_hostname)
+
+	# entry test to prevent running this program on an inappropriate host
+	# entry tests apply only to those highly host-specific or filesystem-specific programs that are hard to generalise
+	if [[ $(declare -a | grep "authorised_host_list" 2>/dev/null) ]]; then
+		entry_test
+	else
+		echo "entry test skipped..." && sleep 2 && echo
+	fi
+	
+	
+	###############################################################################################
+	# $SHLVL DEPENDENT FUNCTION CALLS:	
+	###############################################################################################
+
+	# using $SHLVL to show whether this script was called from another script, or from command line
+	if [ $SHLVL -le 2 ]
+	then
+		# Display a descriptive and informational program header:
+		display_program_header
+
+		# give user option to leave if here in error:
+		get_user_permission_to_proceed
+	fi
+
 
 	###############################################################################################
-		
-	display_program_header	
-	get_user_permission_to_proceed
-	validate_program_args
-	display_current_config_file
-	get_user_config_edit_decision
-	
-	check_config_file_content
+	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
+	###############################################################################################
 
-	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-	import_file_encryption_configuration
-	
+	if [ -n "$config_file_fullpath" ]
+	then
+		display_current_config_file
+
+
+		get_user_config_edit_decision
+
+		# test whether the configuration files' format is valid, and that each line contains something we're expecting
+		validate_config_file_content
+
+		# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+		import_file_encryption_configuration
+	fi
+
+	#exit 0 #debug
+
+
+	###############################################################################################
+	# PROGRAM-SPECIFIC FUNCTION CALLS:	
+	###############################################################################################	
+
 	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 	#check_encryption_platform
 
@@ -127,21 +167,19 @@ function main
 
 
 
-
-
-
-
 ###############################################################################################
-#### vvvvv FUNCTION DECLARATIONS  vvvvv
+####  FUNCTION DECLARATIONS  
 ###############################################################################################
-# 
 
-
-
-
+# entry test to prevent running this program on an inappropriate host
+function entry_test()
+{
+	#
+	:
+}
 
 ####################################################################################################
-function validate_program_args()
+function verify_and_validate_program_arguments()
 {
 #
 	# 1. VALIDATE ANY ARGUMENTS HAVE BEEN PASSED INTO THIS SCRIPT
@@ -157,8 +195,8 @@ function validate_program_args()
 		echo "incoming_array[2]: ${incoming_array[2]}"
 		verify_program_args
 	else
-		echo "Incorrect number of command line args. Exiting now..."
-		echo "Usage: $(basename $0) [<absolute file path>...]"
+		echo "Usage: $(basename $0) [<absolute file path>...]+"
+		echo "Incorrect number of command line arguments. Exiting now..."		
 		exit $E_INCORRECT_NUMBER_OF_ARGS
 	fi
 
@@ -177,6 +215,11 @@ function display_program_header()
 	echo -e "		\033[33m||            Welcome to the FILE ENCRYPTER UTILITY               ||  author: adebayo10k\033[0m";  
 	echo -e "		\033[33m===================================================================\033[0m";
 	echo
+
+	# REPORT SOME SCRIPT META-DATA
+	echo "The absolute path to this script is:	$0"
+	echo "Script root directory set to:		$(dirname $0)"
+	echo "Script filename set to:			$(basename $0)" && echo
 }
 
 ####################################################################################################
@@ -233,11 +276,7 @@ function get_user_config_edit_decision()
 function import_file_encryption_configuration()
 {
 
-	echo
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo "STARTING THE 'IMPORT CONFIGURATION INTO VARIABLES' PHASE in script $(basename $0)"
-	echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-	echo
+	echo  "Press ENTER to start importing to variables..." && echo
 
 	read
 
@@ -250,7 +289,7 @@ function import_file_encryption_configuration()
 ##########################################################################################################
 # test whether the configuration files' format is valid,
 # and that each line contains something we're expecting
-function check_config_file_content()
+function validate_config_file_content()
 {
 	while read lineIn
 	do
@@ -260,13 +299,13 @@ function check_config_file_content()
         echo "return code for tests on that line was: $return_code"
         if [ $return_code -eq 0 ]
         then
-            # if tested line contained expected content
-            # :
+            # tested line must have contained expected content
+            # this function has no need to know which type of line it was
             echo "That line was expected!" && echo
         else
             echo "That line was NOT expected!"
             echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
-            exit 0
+            exit 1
         fi
 
 	done < "$config_file_fullpath" 
@@ -299,7 +338,8 @@ function verify_program_args
 			echo $incoming_arg
 			echo "VALID FORM TEST PASSED" && echo
 		else
-			echo "The valid form test FAILED and returned: $return_code"
+			echo "The valid form test FAILED and returned: $return_code" && echo
+			echo "Usage: $(basename $0) [<absolute file path>...]+" && echo
 			echo "Nothing to do now, but to exit..." && echo
 			exit $E_UNEXPECTED_ARG_VALUE
 		fi
@@ -323,8 +363,9 @@ function verify_program_args
 	
 	for incoming_arg in "${incoming_array[@]}"
 	do
-		plaintext_dir_fullpath=${incoming_arg%/*}
+		#plaintext_dir_fullpath=${incoming_arg%/*}
 		#plaintext_dir_fullpath=$(echo $plaintext_file_fullpath | sed 's/\/[^\/]*$//') ## also works
+		plaintext_dir_fullpath=$(dirname ${incoming_arg})
 		test_dir_path_access "$plaintext_dir_fullpath"
 		return_code=$?
 		if [ $return_code -eq 0 ]
@@ -863,7 +904,7 @@ function sanitise_value ##
 ##########################################################################################################
 
 # A DUAL PURPOSE FUNCTION - CALLED TO EITHER TEST OR TO SET LINE TYPES:
-# TESTS WHETHER THE LINE IS OF EITHER VALID comment, empty/blank OR string (variable or value) TYPE,
+# TESTS WHETHER THE test_line IS OF EITHER VALID comment, empty/blank OR string (variable or value) TYPE,
 # SETS THE GLOBAL line_type AND test_line variableS.
 function test_and_set_line_type
 {
@@ -1069,7 +1110,7 @@ function test_file_path_valid_form
 		echo "THE FORM OF THE INCOMING PARAMETER IS OF A VALID ABSOLUTE FILE PATH"
 		test_result=0
 	else
-		echo "PARAMETER WAS NOT A MATCH FOR OUR KNOWN PATH FORM REGEX: "$abs_filepath_regex"" && sleep 1 && echo
+		echo "PARAMETER WAS NOT A MATCH FOR ABSOLUTE FILE PATH REGEX: "$abs_filepath_regex"" && sleep 1 && echo
 		echo "Returning with a non-zero test result..."
 		test_result=1
 		return $E_UNEXPECTED_ARG_VALUE
