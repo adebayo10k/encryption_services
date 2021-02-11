@@ -107,7 +107,9 @@ function main
 	###############################################################################################
 
 	# using $SHLVL to show whether this script was called from another script, or from command line
-	if [ $SHLVL -le 2 ]
+	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
+
+	if [ $SHLVL -le 3 ]
 	then
 		# Display a descriptive and informational program header:
 		display_program_header
@@ -124,7 +126,6 @@ function main
 	if [ -n "$config_file_fullpath" ]
 	then
 		display_current_config_file
-
 
 		get_user_config_edit_decision
 
