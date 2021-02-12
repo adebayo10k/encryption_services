@@ -109,7 +109,7 @@ function main
 	# using $SHLVL to show whether this script was called from another script, or from command line
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
 
-	if [ $SHLVL -le 3 ]
+	if [ $SHLVL -le 4 ]
 	then
 		# Display a descriptive and informational program header:
 		display_program_header
