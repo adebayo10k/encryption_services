@@ -42,7 +42,7 @@ function main
 	expected_no_of_program_parameters=0
 	actual_no_of_program_parameters=$#
 
-	config_file_fullpath="/etc/key-generator-and-manager.config" # a full path to a file
+	config_file_fullpath="${HOME}/.config/key-generator-and-manager.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
@@ -238,7 +238,7 @@ function get_user_config_edit_decision(){
 	read edit_config
 	case $edit_config in 
 	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
-    		sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    		nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
     		# TODO: Should we now validate the configuration file again?
 				;;
 	[nN])	echo
@@ -936,7 +936,7 @@ function check_encryption_platform
 		
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
-	bash -c "which gpg 2>/dev/null" # suppress stderr (but not stdout for now)
+	bash -c "which gpg > /dev/null 2>&1" # suppress stderr (but not stdout for now)
 	if [ $? -eq 0 ]
 	then
 		echo "GnuPG implementation of the OpenPGP standard INSTALLED ON THIS SYSTEM OK"

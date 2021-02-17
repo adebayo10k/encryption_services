@@ -44,7 +44,7 @@ function main
 
 	#echo $tutti_param_string
 	
-	config_file_fullpath="/etc/file-encrypter.config" # a full path to a file
+	config_file_fullpath="/${HOME}/.config/file-encrypter.config" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
@@ -259,7 +259,7 @@ function get_user_config_edit_decision()
 	read edit_config
 	case $edit_config in 
 	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
-    		sudo nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    		nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
     		# also, no need to validate config file path here, since we've just edited the config file!
 				;;
 	[nN])	echo
@@ -460,7 +460,7 @@ function shred_plaintext_files
 	# shred the plaintext file and verify its' removal
 	for valid_path in "${incoming_array[@]}"
 	do
-		sudo shred -n 1 -ufv "${valid_path}"	
+		shred -n 1 -ufv "${valid_path}"	
 	done
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
