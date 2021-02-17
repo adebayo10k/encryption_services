@@ -1,4 +1,4 @@
-# /etc/file-encrypter.config
+# ~/.config/file-encrypter.config
 # This is a WELL FORMED SAMPLE configuration file for the file-encrypter program.
 # Edit this as necessary for your filesystem
 # The directory paths specified here will determine how the program operates.
