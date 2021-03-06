@@ -84,6 +84,9 @@ function main
 	# 'SHOW STOPPER' CHECKING FUNCTION CALLS:	
 	###############################################################################################
 
+	# check program dependencies and requirements
+	check_program_requirements
+	
 	# verify and validate program positional parameters
 	verify_and_validate_program_arguments
 
@@ -159,6 +162,26 @@ function main
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
+# check whether dependencies are already installed ok on this system
+function check_program_requirements() 
+{
+	declare -a program_dependencies=(jq cowsay vi file-encrypter.sh gpg)
+
+	for program_name in ${program_dependencies[@]}
+	do
+	  if type $program_name >/dev/null 2>&1
+		then
+			echo "$program_name already installed OK" | tee -a $LOG_FILE
+		else
+			echo "${program_name} is NOT installed." | tee -a $LOG_FILE
+			echo "program dependencies are: ${program_dependencies[@]}" | tee -a $LOG_FILE
+  		msg="Required program not found. Exiting now..."
+			exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
+		fi
+	done
+}
+
+###############################################################################################
 # entry test to prevent running this program on an inappropriate host
 function entry_test()
 {
