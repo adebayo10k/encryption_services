@@ -19,23 +19,16 @@ function main
 	###############################################################################################
 	
 	## EXIT CODES:
-	E_UNEXPECTED_BRANCH_ENTERED=10
-	E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
-	E_INCORRECT_NUMBER_OF_ARGS=12
-	E_UNEXPECTED_ARG_VALUE=13
-	E_REQUIRED_FILE_NOT_FOUND=20
-	E_REQUIRED_PROGRAM_NOT_FOUND=21
-	E_UNKNOWN_RUN_MODE=30
-	E_UNKNOWN_EXECUTION_MODE=31
-
-	export E_UNEXPECTED_BRANCH_ENTERED
-	export E_OUT_OF_BOUNDS_BRANCH_ENTERED
-	export E_INCORRECT_NUMBER_OF_ARGS
-	export E_UNEXPECTED_ARG_VALUE
-	export E_REQUIRED_FILE_NOT_FOUND
-	export E_REQUIRED_PROGRAM_NOT_FOUND
-	export E_UNKNOWN_RUN_MODE
-	export E_UNKNOWN_EXECUTION_MODE
+	export E_UNEXPECTED_BRANCH_ENTERED=10
+	export E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
+	export E_INCORRECT_NUMBER_OF_ARGS=12
+	export E_UNEXPECTED_ARG_VALUE=13
+	export E_REQUIRED_FILE_NOT_FOUND=20
+	export E_REQUIRED_PROGRAM_NOT_FOUND=21
+	export E_UNKNOWN_RUN_MODE=30
+	export E_UNKNOWN_EXECUTION_MODE=31
+	export E_FILE_NOT_ACCESSIBLE=40
+	export E_UNKNOWN_ERROR=32
 
 	###############################################################################################
 
@@ -58,7 +51,7 @@ function main
 	output_option='--output'
 	file_path_placeholder='<filepath_placeholder>'
 
-    abs_filepath_regex='^(/{1}[A-Za-z0-9._~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
+  abs_filepath_regex='^(/{1}[A-Za-z0-9._~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
 	all_filepath_regex='^(/?[A-Za-z0-9._~:@-]+)+(/)?$' # both relative and absolute file path
 	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
 	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
@@ -162,6 +155,20 @@ function main
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
+# exit program with non-zero exit code
+function exit_with_error()
+{	
+	error_code="$1"
+	error_message="$2"
+
+	echo "EXIT CODE: $error_code" | tee -a $LOG_FILE
+	echo "$error_message" | tee -a $LOG_FILE && echo && sleep 1
+	echo "USAGE: $(basename $0)" | tee -a $LOG_FILE && echo && sleep 1
+
+	exit $error_code
+}
+
+###############################################################################################
 # check whether dependencies are already installed ok on this system
 function check_program_requirements() 
 {
@@ -192,18 +199,14 @@ function entry_test()
 ###############################################################################################
 function verify_and_validate_program_arguments(){
 
-	echo "USAGE: $(basename $0)"
-
 	# TEST COMMAND LINE ARGS
 	if [ $actual_no_of_program_parameters -ne $expected_no_of_program_parameters ]
 	then
-		echo "Incorrect number of command line args. Exiting now..."
-		echo "Usage: $(basename $0)"
-		exit $E_INCORRECT_NUMBER_OF_ARGS
+		msg="Incorrect number of command line args. Exiting now..."
+		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
-
 }
 
 ###############################################################################################
@@ -218,8 +221,8 @@ function display_program_header(){
 
 	# REPORT SOME SCRIPT META-DATA
 	echo "The absolute path to this script is:	$0"
-	echo "Script root directory set to:		$(dirname $0)"
-	echo "Script filename set to:			$(basename $0)" && echo
+	echo "Script parent directory is:		$(dirname $0)"
+	echo "Script filename is:			$(basename $0)" && echo
 		
 }
 
@@ -234,13 +237,12 @@ function get_user_permission_to_proceed(){
 	read last_chance
 	case $last_chance in 
 	[qQ])	echo
-			echo "Goodbye!" && sleep 1
-			exit 0
+				msg="Goodbye!. Exiting now..."
+				exit_with_error 0 "$msg"
 				;;
 	*) 		echo "You're IN..." && echo && sleep 1
 				;;
-	esac 
-
+	esac
 }
 
 ###############################################################################################
@@ -270,8 +272,7 @@ function get_user_config_edit_decision(){
 	*) 		echo " Give me a Y or N..." && echo && sleep 1
 			get_user_config_edit_decision
 				;;
-	esac 
-	
+	esac	
 }
 
 ###############################################################################################
@@ -291,13 +292,11 @@ function validate_config_file_content()
             # this function has no need to know which type of line it was
             echo "That line was expected!" && echo
         else
-            echo "That line was NOT expected!"
-            echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
-            exit 1
+						msg="That line was NOT expected! Exiting now..."
+						exit_with_error "$E_UNKNOWN_ERROR" "$msg"
         fi
 
-	done < "$config_file_fullpath" 
-
+	done < "$config_file_fullpath"
 }
 
 ###############################################################################################
@@ -328,9 +327,8 @@ function create_all_synchronised_dirs()
 		then
 			echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
 		else
-			echo "The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_UNEXPECTED_BRANCH_ENTERED
+			msg="The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
 		fi	
 	fi
 
@@ -352,13 +350,13 @@ function create_all_synchronised_dirs()
 			echo && echo "subdir DID NOT ALREADY EXIST, SO WILL NOW BE CREATED..."
 			# create it..
 			mkdir "$subdir"
-			if [ $? -eq 0 ]
+			return_code=$?
+			if [ $return_code -eq 0 ]
 			then
 				echo "subdir CREATION WAS SUCCESSFUL"
 			else
-				echo "The mkdir of subdir FAILED and returned: $?"
-				echo "Nothing to do now, but to exit..." && echo
-				exit $E_UNEXPECTED_BRANCH_ENTERED
+				msg="The mkdir of subdir FAILED and returned: $return_code. Exiting now..."
+				exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
 			fi	
 		fi
 	done
@@ -393,9 +391,8 @@ do
 	then
 		echo "DIRECTORY PATH IS OF VALID FORM"
 	else
-		echo "The valid form test FAILED and returned: $return_code"
-		echo "Nothing to do now, but to exit..." && echo
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="The valid form test FAILED and returned: $return_code. Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi	
 
 	# if the above test returns ok, ...
@@ -405,9 +402,8 @@ do
 	then
 		echo "The full path to the DIRECTORY is: $dir"
 	else
-		echo "The DIRECTORY path access test FAILED and returned: $return_code"
-		echo "Nothing to do now, but to exit..." && echo
-		exit $E_REQUIRED_FILE_NOT_FOUND
+		msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
+		exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 	fi
 done
 
@@ -422,23 +418,22 @@ function check_config_file_content()
 	while read lineIn
 	do
 		# any content problems handled in the test_and_set_line_type function:
-        test_and_set_line_type "$lineIn"
-        return_code="$?"
-        echo "return code for tests on that line was: $return_code"
-        if [ $return_code -eq 0 ]
-        then
-            # if tested line contained expected content
-            # :
-            echo "That line was expected!" && echo
-        else
-            echo "That line was NOT expected!"
-            echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
-            exit 0
-        fi
+    test_and_set_line_type "$lineIn"
+    return_code="$?"
+    echo "return code for tests on that line was: $return_code"
+    if [ $return_code -eq 0 ]
+    then
+        # if tested line contained expected content
+        # :
+        echo "That line was expected!" && echo
+    else
+			msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_UNKNOWN_ERROR" "$msg"
+    fi
 
-	done < "$config_file_fullpath" 
-
+	done < "$config_file_fullpath"
 }
+
 ###########################################################################################################
 # returns 
 function export_public_keys
@@ -716,7 +711,6 @@ function test_email_valid_form
 		return $E_UNEXPECTED_ARG_VALUE
 	fi 
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return "$test_result"
@@ -724,7 +718,6 @@ function test_email_valid_form
 ###############################################################################################
 function set_working_user_id
 {
-
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
 	# in order for script to use a variable (user_id) when creating certificate revocation and public key export commands, \
@@ -771,9 +764,7 @@ function set_working_user_id
 
 	done
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 ###############################################################################################
@@ -781,8 +772,7 @@ function set_working_user_id
 # and encryption etc.
 function generate_and_manage_keys
 {
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-	
+	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo	
 	
 	set_working_user_id
 
@@ -815,10 +805,8 @@ function generate_and_manage_keys
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION..."
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 	
 	backup_public_keyrings
@@ -839,10 +827,8 @@ function generate_and_manage_keys
 		sleep 12
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION..."
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	generate_revocation_certificate
@@ -862,10 +848,8 @@ function generate_and_manage_keys
 		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION..."
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 	
 	encrypt_revocation_certificates
@@ -885,10 +869,8 @@ function generate_and_manage_keys
 		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION..."
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	rename_and_move_revocation_certificates
@@ -909,10 +891,8 @@ function generate_and_manage_keys
 		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF KEY GENERATION"
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	export_public_keys
@@ -932,10 +912,8 @@ function generate_and_manage_keys
 		sleep 12; echo && echo "PRESS ENTER NOW TO CONTINUE" && echo
 	else
 		# exit, as nothing further can be done
-		echo && echo "ABORTING DUE TO FAILURE OF PUBLIC KEYS EXPORT"
-		echo && echo "...WAIT"	
-		sleep 4
-		exit $E_UNEXPECTED_ARG_VALUE
+		msg="ABORTING DUE TO FAILURE OF PUBLIC KEYS EXPORT... Exiting now..."
+		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	echo && echo "[7] WE'VE NOW COMPLETED THE WHOLE PROCESS OF KEY GENERATION AND MANAGEMENT...WAIT" && echo
@@ -964,10 +942,9 @@ function check_encryption_platform
 	then
 		echo "GnuPG implementation of the OpenPGP standard INSTALLED ON THIS SYSTEM OK"
 	else
-		echo "FAILED TO FIND THE REQUIRED OpenPGP implementing PROGRAM"
 		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+		msg="FAILED TO FIND THE REQUIRED OpenPGP implementing PROGRAM. Exiting now..."
+		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
 
 	# we test for the existence of a known script that provides encryption services:
@@ -1236,98 +1213,3 @@ function test_dir_path_access
 #########################################################################################################
 
 main "$@"; exit
-
-
-# TODO:
-# CREATE AND PUSH FLOWCHART ALGORITHM FOR COMMAND GENERATION FUNCTIONS (AN IGNORE FILE)
-# CREATE CONFIGURATION IMPORT FUNCTIONS
-# CALL SEPARATE SCRIPT FOR EACH DISTINCT SERVICE
-# CREATE THE PUBLIC-KEY BACKUP FUNCTIONALITY SCRIPT
-
-# UPDATE THE README.md TO ADD A PRE-REQUISITES SECTION
-
-# UPDATE TO USE OF OPTION SELECTION FUNCTION IF APPROPRIATE
-
-
-# .. don't forget to unset when returning to calling program
-
-###############################################################################################
-
-## USE CASE - CALLED BY audit-list-maker.sh TO GPG ENCRYPT A SINGLE FILE
-
-# FOR ENCRYPTION OF A SINGLE FILE, ALL es EVER NEEDS TO BE PASSED AS A PARAMETER IS THE ABSOLUTE PATH FILENAME OF THE 
-# PLAINTEXT FILE. IT CAN GET EVERYTHING ELSE IT NEEDS EITHER FROM CONFIGURATION FILE DEFAULTS, OR FROM THE USER.
-#
-
-# decides whether being called directly or by another script
-
-# takes in, validates and assigns the plaintext filename parameter
-
-# tests its environment - config files, `which gpg`, public key-pair pre-generated...
-
-
-# gets  and validates any unknown required parameters from the user - sender, recipient UID (based on `hostname`) \
-#  if using public key encryption - ANY DEFAULTS FOR THIS COULD BE IN A CONFIGURATION FILE FOR THIS PROGRAM
-	# - cryptographic system to be used (whether public key or symmetric key crypto)
-	# - the output format whether the binary default for gpg or ascii armoured
-	# - the desired output filename for the encrypted file (full path): [DEFAULT = SAME AS INPUT WITH .asc|.pgp]
-
-# if all good, es shows user the command it wants to execute
-# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> recipient <uid> --encrypt "$plaintext_file_fullpath"
-
-# if user give ok, es executes the command(s)
-
-# es tests resulting postconditions#
-
-# es reports success to user and returns control
-
-###############################################################################################
-
-
-#ssh hostname ## this command likely to be read in from file
-
-## definitely control the hosts on which this program can run
-#
-# hostname will determine which ssh code runs
-#
-
-###############################################################################################
-
-# these files need to be backed up and encrypted:
-#public keyrings such as:
-#~/.gnupg/pubring.gpg 
-#~/.gnupg/pubring.kbx
-#
-#these revocation certs need to be CIA stored, so backup and encryption as well as on separate media
-#~/.gnupg/opengpg_revocs.d/
-#
-#integration with existing system may look like:
-#- an option to run this script post-shred an pre-mutables synchronisation
-
-###############################################################################################
-
-# tests whether parameter in of type array, if true returns 0, else returns 1
-# declare -a ## returns list of all the current array variables
-# grepping with our array works, but not 100% clear on mechanism...	
-# TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
-#declare -a | grep "${incoming_parameter}" 2> /dev/null ##
-#if [ $? -eq 0 ]
-#then
-#	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
-#	incoming_array=("${incoming_parameter[@]}")
-#else
-#	echo "The incoming parameter was NOT of type ARRAY"
-#fi
-#
-#echo ${incoming_parameter[@]}
-#
-## test whether incoming parameter is of type string
-#
-#
-#
-#for ((index=0; index<$number_of_incoming_params; index++));
-#	do	
-#		position=$((index + 1))
-#		echo "position is set to: $position"
-#		incoming_array[$index]=${postition}
-#	done

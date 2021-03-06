@@ -19,23 +19,16 @@ function main
 	###############################################################################################
 
 	## EXIT CODES:
-	E_UNEXPECTED_BRANCH_ENTERED=10
-	E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
-	E_INCORRECT_NUMBER_OF_ARGS=12
-	E_UNEXPECTED_ARG_VALUE=13
-	E_REQUIRED_FILE_NOT_FOUND=20
-	E_REQUIRED_PROGRAM_NOT_FOUND=21
-	E_UNKNOWN_RUN_MODE=30
-	E_UNKNOWN_EXECUTION_MODE=31
-
-	export E_UNEXPECTED_BRANCH_ENTERED
-	export E_OUT_OF_BOUNDS_BRANCH_ENTERED
-	export E_INCORRECT_NUMBER_OF_ARGS
-	export E_UNEXPECTED_ARG_VALUE
-	export E_REQUIRED_FILE_NOT_FOUND
-	export E_REQUIRED_PROGRAM_NOT_FOUND
-	export E_UNKNOWN_RUN_MODE
-	export E_UNKNOWN_EXECUTION_MODE
+	export E_UNEXPECTED_BRANCH_ENTERED=10
+	export E_OUT_OF_BOUNDS_BRANCH_ENTERED=11
+	export E_INCORRECT_NUMBER_OF_ARGS=12
+	export E_UNEXPECTED_ARG_VALUE=13
+	export E_REQUIRED_FILE_NOT_FOUND=20
+	export E_REQUIRED_PROGRAM_NOT_FOUND=21
+	export E_UNKNOWN_RUN_MODE=30
+	export E_UNKNOWN_EXECUTION_MODE=31
+	export E_FILE_NOT_ACCESSIBLE=40
+	export E_UNKNOWN_ERROR=32
 
 	###############################################################################################
 
@@ -159,8 +152,8 @@ function main
 		# result_code=$?
 	else
 		# this will soon be possible!
-		echo "TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS"	
-		exit "$E_INCORRECT_NUMBER_OF_ARGS"
+		msg="TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS. Exiting now..."
+		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 	
 	
@@ -170,11 +163,24 @@ function main
 } ## end main
 
 
-
 ###############################################################################################
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
+# exit program with non-zero exit code
+function exit_with_error()
+{	
+	error_code="$1"
+	error_message="$2"
+
+	echo "EXIT CODE: $error_code" | tee -a $LOG_FILE
+	echo "$error_message" | tee -a $LOG_FILE && echo && sleep 1
+	echo "USAGE: $(basename $0) [absolute file path]+" | tee -a $LOG_FILE && echo && sleep 1
+
+	exit $error_code
+}
+
+###############################################################################################
 # check whether dependencies are already installed ok on this system
 function check_program_requirements() 
 {
@@ -214,14 +220,11 @@ function verify_and_validate_program_arguments()
 	then
 		#echo "IFS: -$IFS+"
 		incoming_array=( $tutti_param_string )
-		echo "incoming_array[0]: ${incoming_array[0]}"
-		echo "incoming_array[1]: ${incoming_array[1]}"
-		echo "incoming_array[2]: ${incoming_array[2]}"
+		echo "incoming_array[@]: ${incoming_array[@]}"
 		verify_program_args
 	else
-		echo "Usage: $(basename $0) [<absolute file path>...]+"
-		echo "Incorrect number of command line arguments. Exiting now..."		
-		exit $E_INCORRECT_NUMBER_OF_ARGS
+		msg="Incorrect number of command line arguments. Exiting now..."
+		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 
 }
@@ -256,8 +259,8 @@ function get_user_permission_to_proceed()
 	read last_chance
 	case $last_chance in 
 	[qQ])	echo
-			echo "Goodbye!" && sleep 1
-			exit 0
+				msg="Goodbye! Exiting now..."
+				exit_with_error 0 "$msg"
 				;;
 	*) 		echo "You're IN..." && echo && sleep 1
 				;;
@@ -327,9 +330,8 @@ function validate_config_file_content()
             # this function has no need to know which type of line it was
             echo "That line was expected!" && echo
         else
-            echo "That line was NOT expected!"
-            echo "Exiting from function \"${FUNCNAME[0]}\" in script \"$(basename $0)\""
-            exit 1
+						msg="That line was NOT expected!. Exiting now..."
+						exit_with_error 1 "$msg"
         fi
 
 	done < "$config_file_fullpath" 
@@ -362,10 +364,8 @@ function verify_program_args
 			echo $incoming_arg
 			echo "VALID FORM TEST PASSED" && echo
 		else
-			echo "The valid form test FAILED and returned: $return_code" && echo
-			echo "Usage: $(basename $0) [<absolute file path>...]+" && echo
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_UNEXPECTED_ARG_VALUE
+			msg="The valid form test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 		fi
 	done
 	
@@ -379,9 +379,8 @@ function verify_program_args
 			echo "The full path to the plaintext file is: $incoming_arg"
 			echo "REGULAR FILE READ TEST PASSED" && echo
 		else
-			echo "The file path access test FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
+			msg="The file path access test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 		fi
 	done
 	
@@ -397,9 +396,8 @@ function verify_program_args
 			echo "The full path to the plaintext file holding directory is: $plaintext_dir_fullpath"
 			echo "HOLDING DIRECTORY ACCESS READ TEST PASSED" && echo
 		else
-			echo "The directory path access test FAILED and returned: $return_code"
-			echo "Nothing to do now, but to exit..." && echo
-			exit $E_REQUIRED_FILE_NOT_FOUND
+			msg="The directory path access test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 		fi
 	done
 
@@ -440,7 +438,6 @@ function verify_file_shred_results
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
-
 	# :
 	for valid_path in "${incoming_array[@]}"
 	do
@@ -457,9 +454,7 @@ function verify_file_shred_results
 		fi
 	done
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 ###############################################################################################
@@ -467,7 +462,6 @@ function verify_file_shred_results
 function shred_plaintext_files
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
 
 	echo "OK TO SHRED THE FOLLOWING PLAINTEXT FILE(S)?..." && echo
 
@@ -529,7 +523,6 @@ function verify_file_encryption_results
 		return $E_REQUIRED_FILE_NOT_FOUND
 	fi
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	return 0
@@ -559,9 +552,7 @@ function execute_file_specific_encryption_command
 	# execute [here] using bash -c ...
 	bash -c "$file_specific_command"
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 ###############################################################################################
@@ -588,11 +579,9 @@ function create_generic_symmetric_key_encryption_command_string
 
 	generic_command+="${encryption_system_option} ${file_path_placeholder}"
 
-
 	echo "$generic_command"
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 ###############################################################################################
 # this function called if encryption_system="public_key"
@@ -630,7 +619,6 @@ function create_generic_pub_key_encryption_command_string
 	echo "$generic_command"
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 
@@ -719,7 +707,6 @@ function get_sender_uid
 
 	done
 
-
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
 
@@ -729,7 +716,6 @@ function set_command_parameters
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
-
 	if [ $output_file_format == "ascii" ]
 	then
 		output_file_extension=".asc" #default
@@ -737,9 +723,8 @@ function set_command_parameters
 	then
 		output_file_extension=".gpg"
 	else
-		echo "FAILSAFE BRANCH ENTERED"
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
+		msg="FAILSAFE BRANCH ENTERED. Exiting now..."
+		exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
 	fi	
 
 	if [ $encryption_system == "public_key" ]
@@ -766,13 +751,11 @@ function set_command_parameters
 		create_generic_symmetric_key_encryption_command_string
 
 	else
-		echo "FAILSAFE BRANCH ENTERED"
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_OUT_OF_BOUNDS_BRANCH_ENTERED
+		msg="FAILSAFE BRANCH ENTERED. Exiting now..."
+		exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 ###############################################################################################
 ###############################################################################################
@@ -802,14 +785,12 @@ function check_gpg_user_keys
 	then
 		echo "KEY-PAIR FINGERPRINT IDENTIFIED FOR USER-ID OK"
 	else
-		echo "FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID"
 		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+		msg="FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID. Exiting now..."
+		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 ########################################################################################## 
 ###############################################################################################
@@ -851,9 +832,9 @@ function gpg_encrypt_files
 		if [ $encrypt_result -eq 0 ]
 		then
 			echo && echo "SUCCESSFUL VERIFICATON OF ENCRYPTION encrypt_result: $encrypt_result"
-		else			
-			echo "FAILURE REPORT...ON STATE...encrypt_result: $encrypt_result"
-			exit 1 ### NEED AN EXIT REASON CODE HERE
+		else
+			msg="FAILURE REPORT. Unexpected encrypt_result: $encrypt_result. Exiting now..."
+			exit_with_error "$E_UNKNOWN_ERROR" "$msg"
 		fi	
 	done
 
@@ -872,7 +853,6 @@ function gpg_encrypt_files
 	#return $encrypt_result # resulting from the last successful encryption only! So what use is that?
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 
@@ -894,14 +874,12 @@ function check_encryption_platform
 		bash -c "gpg --list-key"
 		bash -c "gpg --list-secret-keys"
 	else
-		echo "FAILED TO FIND THE REQUIRED OpenPGP PROGRAM"
 		# -> exit due to failure of any of the above tests:
-		echo "Exiting from function \"${FUNCNAME[0]}\" in script $(basename $0)"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
+		msg="FAILED TO FIND THE REQUIRED OpenPGP PROGRAM. Exiting now..."
+		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 #########################################################################################################
@@ -923,7 +901,6 @@ function sanitise_value ##
 	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 ##########################################################################################################
 
@@ -974,7 +951,6 @@ function test_and_set_line_type
 	fi
 
 	#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 ##########################################################################################################
 # for any absolute file path value to be imported...
@@ -1036,8 +1012,8 @@ function get_single_value_string_variables
 		then
 			sender_uid="$1"
 		else
-			echo "Failsafe branch entered"
-			exit $E_UNEXPECTED_BRANCH_ENTERED
+			msg="Failsafe branch entered. Exiting now..."
+			exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
 		fi
 
 		set -- # unset that positional parameter we used to get test_line out of that while read subprocess
@@ -1048,7 +1024,6 @@ function get_single_value_string_variables
 	done
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
 }
 
 ##########################################################################################################
@@ -1206,98 +1181,3 @@ function test_dir_path_access
 #########################################################################################################
 
 main "$@"; exit
-
-
-# TODO:
-# CREATE AND PUSH FLOWCHART ALGORITHM FOR COMMAND GENERATION FUNCTIONS (AN IGNORE FILE)
-# CREATE CONFIGURATION IMPORT FUNCTIONS
-# CALL SEPARATE SCRIPT FOR EACH DISTINCT SERVICE
-# CREATE THE PUBLIC-KEY BACKUP FUNCTIONALITY SCRIPT
-
-# UPDATE THE README.md TO ADD A PRE-REQUISITES SECTION
-
-# UPDATE TO USE OF OPTION SELECTION FUNCTION IF APPROPRIATE
-
-
-# .. don't forget to unset when returning to calling program
-
-###############################################################################################
-
-## USE CASE - CALLED BY audit-list-maker.sh TO GPG ENCRYPT A SINGLE FILE
-
-# FOR ENCRYPTION OF A SINGLE FILE, ALL es EVER NEEDS TO BE PASSED AS A PARAMETER IS THE ABSOLUTE PATH FILENAME OF THE 
-# PLAINTEXT FILE. IT CAN GET EVERYTHING ELSE IT NEEDS EITHER FROM CONFIGURATION FILE DEFAULTS, OR FROM THE USER.
-#
-
-# decides whether being called directly or by another script
-
-# takes in, validates and assigns the plaintext filename parameter
-
-# tests its environment - config files, `which gpg`, public key-pair pre-generated...
-
-
-# gets  and validates any unknown required parameters from the user - sender, recipient UID (based on `hostname`) \
-#  if using public key encryption - ANY DEFAULTS FOR THIS COULD BE IN A CONFIGURATION FILE FOR THIS PROGRAM
-	# - cryptographic system to be used (whether public key or symmetric key crypto)
-	# - the output format whether the binary default for gpg or ascii armoured
-	# - the desired output filename for the encrypted file (full path): [DEFAULT = SAME AS INPUT WITH .asc|.pgp]
-
-# if all good, es shows user the command it wants to execute
-# $ gpg --armor --output "$plaintext_file_fullpath.asc" --local-user <uid> recipient <uid> --encrypt "$plaintext_file_fullpath"
-
-# if user give ok, es executes the command(s)
-
-# es tests resulting postconditions#
-
-# es reports success to user and returns control
-
-###############################################################################################
-
-
-#ssh hostname ## this command likely to be read in from file
-
-## definitely control the hosts on which this program can run
-#
-# hostname will determine which ssh code runs
-#
-
-###############################################################################################
-
-# these files need to be backed up and encrypted:
-#public keyrings such as:
-#~/.gnupg/pubring.gpg 
-#~/.gnupg/pubring.kbx
-#
-#these revocation certs need to be CIA stored, so backup and encryption as well as on separate media
-#~/.gnupg/opengpg_revocs.d/
-#
-#integration with existing system may look like:
-#- an option to run this script post-shred an pre-mutables synchronisation
-
-###############################################################################################
-
-# tests whether parameter is of type array, if true returns 0, else returns 1
-# declare -a ## returns list of all the current array variables
-# grepping with our array works, but not 100% clear on mechanism...	
-# TODO: TURN THIS INTO A GENERAL PURPOSE type_array_test FUNCTION IF IT IS NEEDED AGAIN
-#declare -a | grep "${incoming_parameter}" 2> /dev/null ##
-#if [ $? -eq 0 ]
-#then
-#	echo "THE INCOMING PARAMETER WAS OF TYPE ARRAY"
-#	incoming_array=("${incoming_parameter[@]}")
-#else
-#	echo "The incoming parameter was NOT of type ARRAY"
-#fi
-#
-#echo ${incoming_parameter[@]}
-#
-## test whether incoming parameter is of type string
-#
-#
-#
-#for ((index=0; index<$number_of_incoming_params; index++));
-#	do	
-#		position=$((index + 1))
-#		echo "position is set to: $position"
-#		incoming_array[$index]=${postition}
-#	done
