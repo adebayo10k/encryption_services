@@ -58,8 +58,8 @@ function main
 	output_option='--output'
 	file_path_placeholder='<filepath_placeholder>'
 
-    abs_filepath_regex='^(/{1}[A-Za-z0-9\.\ _~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
-	all_filepath_regex='^(/?[A-Za-z0-9\.\ _~:@-]+)+(/)?$' # both relative and absolute file path
+    abs_filepath_regex='^(/{1}[A-Za-z0-9._~:@-]+)+$' # absolute file path, ASSUMING NOT HIDDEN FILE, ...
+	all_filepath_regex='^(/?[A-Za-z0-9._~:@-]+)+(/)?$' # both relative and absolute file path
 	email_regex='^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$'
 	# ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
 	# ^[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:].]{2,4}$ ]]
