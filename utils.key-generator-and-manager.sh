@@ -116,7 +116,6 @@ function main
 	then
 		display_current_config_file
 
-
 		get_user_config_edit_decision
 
 		# test whether the configuration files' format is valid, and that each line contains something we're expecting
@@ -133,9 +132,6 @@ function main
 	###############################################################################################
 
 	create_all_synchronised_dirs
-
-	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT ON WHICH THIS PROGRAM DEPENDS:
-	check_encryption_platform
 
 	# issue gpg commands to list keys for now... just to see what's there
 	bash -c "gpg --list-key"
@@ -669,7 +665,6 @@ function generate_public_keypair
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 
 	echo "new_keygen_OK was set to: $new_keygen_OK"
-
 }
 ##########################################################################################################
 # returns zero if user-id (or substring of it) already used in public keyring
@@ -927,41 +922,7 @@ function generate_and_manage_keys
 
 ###############################################################################################
 ###############################################################################################
-################################################################################################
-################################################################################################
 
-# check that the OpenPGP tool gpg is installed on the system
-# check that the file-encrypter.sh program is accessible
-function check_encryption_platform
-{
-		
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	bash -c "which gpg > /dev/null 2>&1" # suppress stderr (but not stdout for now)
-	if [ $? -eq 0 ]
-	then
-		echo "GnuPG implementation of the OpenPGP standard INSTALLED ON THIS SYSTEM OK"
-	else
-		# -> exit due to failure of any of the above tests:
-		msg="FAILED TO FIND THE REQUIRED OpenPGP implementing PROGRAM. Exiting now..."
-		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
-	fi
-
-	# we test for the existence of a known script that provides encryption services:
-	which file-encrypter.sh
-	if [ $? -eq 0 ]
-	then
-		echo "THE file-encrypter.sh PROGRAM WAS FOUND TO BE INSTALLED OK ON THIS HOST SYSTEM"	
-	else
-		echo "FAILED TO FIND THE file-encrypter.sh PROGRAM ON THIS SYSTEM, SO NO NOTHING LEFT TO DO BUT EXEET, GOODBYE"
-		exit $E_REQUIRED_PROGRAM_NOT_FOUND
-	fi	
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-#########################################################################################################
 ##########################################################################################################
 # keep sanitise functions separate and specialised, as we may add more to specific value types in future
 # FINAL OPERATION ON VALUE, SO GLOBAL test_line SET HERE. RENAME CONCEPTUALLY DIFFERENT test_line NAMESAKES
