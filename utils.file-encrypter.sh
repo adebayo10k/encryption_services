@@ -140,7 +140,7 @@ function main
 	###############################################################################################	
 	
 	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
-	#check_encryption_platform
+	check_encryption_platform
 
 	# issue gpg commands to list keys for now... just to see what's there
 	bash -c "gpg --list-key"
@@ -841,7 +841,7 @@ function gpg_encrypt_files
 	# 6. SHRED THE PLAINTEXT FILES, NOW THAT ENCRYPTED VERSION HAVE BEEN MADE
 
 	# first checking that the shred program is installed
-	which shred #&> /dev/null
+	type shred > /dev/null 2>&1
 	if [ $? -eq 0 ]
 	then
 		shred_plaintext_files
@@ -858,15 +858,13 @@ function gpg_encrypt_files
 
 ###############################################################################################
 ###############################################################################################
-
 # check that the OpenPGP tool gpg is installed on the system
 #  
 function check_encryption_platform
-{
-		
+{		
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
 
-	bash -c "which gpg 2>/dev/null" # suppress stderr (but not stdout for now)
+	type gpg > /dev/null 2>&1
 	if [ $? -eq 0 ]
 	then
 		echo "OpenPGP PROGRAM INSTALLED ON THIS SYSTEM OK"
