@@ -245,8 +245,13 @@ function display_program_header()
 
 	# REPORT SOME SCRIPT META-DATA
 	echo "The absolute path to this script is:	$0"
-	echo "Script root directory set to:		$(dirname $0)"
-	echo "Script filename set to:			$(basename $0)" && echo
+	echo "Script root directory is:		$(dirname $0)"
+	echo "Script filename is:			$(basename $0)" && echo
+
+	if type cowsay > /dev/null 2>&1
+	then
+		cowsay "YES, ${USER}!"
+	fi
 }
 
 ####################################################################################################
@@ -259,8 +264,8 @@ function get_user_permission_to_proceed()
 	read last_chance
 	case $last_chance in 
 	[qQ])	echo
-				msg="Goodbye! Exiting now..."
-				exit_with_error 0 "$msg"
+				echo "Goodbye! Exiting now..."
+				exit 0 #
 				;;
 	*) 		echo "You're IN..." && echo && sleep 1
 				;;
@@ -285,7 +290,7 @@ function get_user_config_edit_decision()
 	read edit_config
 	case $edit_config in 
 	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
-    		nano "$config_file_fullpath" # /etc exists, so no need to test access etc.
+    		vi "$config_file_fullpath" # /etc exists, so no need to test access etc.
     		# also, no need to validate config file path here, since we've just edited the config file!
 				;;
 	[nN])	echo
