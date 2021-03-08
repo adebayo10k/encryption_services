@@ -175,7 +175,7 @@ function exit_with_error()
 
 	echo "EXIT CODE: $error_code" | tee -a $LOG_FILE
 	echo "$error_message" | tee -a $LOG_FILE && echo && sleep 1
-	echo "USAGE: $(basename $0) [absolute file path]+" | tee -a $LOG_FILE && echo && sleep 1
+	echo "USAGE: $(basename $0) ABSOLUTE_FILEPATH..." | tee -a $LOG_FILE && echo && sleep 1
 
 	exit $error_code
 }
@@ -232,7 +232,7 @@ function verify_and_validate_program_arguments()
 ####################################################################################################
 function display_program_header()
 {
-	echo "USAGE: $(basename $0) <[<absolute file path>...]" # one or more strings (representing fullpaths to files)
+	echo "USAGE: $(basename $0) ABSOLUTE_FILEPATH..." # one or more strings required (fullpaths to files)
 
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
 
