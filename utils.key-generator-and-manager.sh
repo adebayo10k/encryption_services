@@ -87,7 +87,7 @@ function main
 
 	# entry test to prevent running this program on an inappropriate host
 	# entry tests apply only to those highly host-specific or filesystem-specific programs that are hard to generalise
-	if [[ $(declare -a | grep "authorised_host_list" 2>/dev/null) ]]; then
+	if [[ $(declare -a | grep 'authorised_host_list' 2>/dev/null) ]]; then
 		entry_test
 	else
 		echo "entry test skipped..." && sleep 2 && echo
