@@ -12,6 +12,40 @@
 #: Options		:
 ##
 
+##################################################################
+##################################################################
+# THIS STUFF IS HAPPENING BEFORE MAIN FUNCTION CALL:
+
+# must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course
+# may be either a symlink file or actual target source file
+command_fullpath="$0"
+command_dirname="$(dirname $0)"
+command_basename="$(basename $0)"
+
+# if a symlink file, then we need a reference to the canonical file name, as that's the location where all our required source files will be.
+# we'll test whether a symlink, then use readlink -f or realpath -e although those commands return canonical file whether symlink or not.
+# 
+canonical_fullpath="$(readlink -f $command_fullpath)"
+
+if [ -h "$command_fullpath" ]
+then
+	echo "is symlink"
+	echo "canonical_fullpath : $canonical_fullpath"
+else
+	echo "is canonical"
+	echo "canonical_fullpath : $canonical_fullpath"
+fi
+
+# included source files for json profile import functions
+source "$(dirname $canonical_fullpath)/preset-profile-builder.sh"
+
+
+
+# THAT STUFF JUST HAPPENED BEFORE MAIN FUNCTION CALL!
+##################################################################
+##################################################################
+
+
 function main
 {	
 	###############################################################################################
@@ -31,29 +65,6 @@ function main
 	export E_UNKNOWN_ERROR=32
 
 	###############################################################################################
-
-	# may be either a symlink file or actual target source file
-	command_fullpath="$0"
-	command_dirname="$(dirname $0)"
-	command_basename="$(basename $0)"
-
-	# if a symlink file, then we need a reference to the canonical file name, as that's the location where all our required source files will be.
-	# we'll test whether a symlink, then use readlink -f or realpath -e although those commands return canonical file whether symlink or not.
-	# 
-	canonical_fullpath="$(readlink -f $command_fullpath)"
-
-	if [ -h "$command_fullpath" ]
-	then
-		echo "is symlink"
-		echo "canonical_fullpath : $canonical_fullpath"
-	else
-		echo "is canonical"
-		echo "canonical_fullpath : $canonical_fullpath"
-	fi
-
-	exit 0
-
-
 
 	no_of_program_parameters=$#
 	tutti_param_string="$@"
@@ -317,7 +328,7 @@ function get_user_permission_to_proceed()
 	esac 
 }
 
-####################################################################################################
+################################################################
 function display_current_config_file()
 {
 	echo && echo CURRENT CONFIGURATION FILE...
@@ -326,7 +337,7 @@ function display_current_config_file()
 	cat "$config_file_fullpath"
 }
 
-####################################################################################################
+#################################################################
 function get_user_config_edit_decision()
 {
 	echo " Edit configuration file? [Y/N]"
@@ -347,16 +358,6 @@ function get_user_config_edit_decision()
 	esac 
 	
 }
-
-##################################################################
-#here="./preset-profile-builder.sh"
-here="./preset-profile-builder.sh"
-
-# included source files for json profile import functions
-source "$here"
-
-# test if command_fullpath is a symbolic link. if so, find it's target and set that
-# (repeat until regular file and not a symlink)
 
 ##################################################################
 # test whether the configuration files' format is valid,
