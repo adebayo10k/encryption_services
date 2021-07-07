@@ -32,12 +32,35 @@ function main
 
 	###############################################################################################
 
+	# may be either a symlink file or actual target source file
+	command_fullpath="$0"
+	command_dirname="$(dirname $0)"
+	command_basename="$(basename $0)"
+
+	# if a symlink file, then we need a reference to the canonical file name, as that's the location where all our required source files will be.
+	# we'll test whether a symlink, then use readlink -f or realpath -e although those commands return canonical file whether symlink or not.
+	# 
+	canonical_fullpath="$(readlink -f $command_fullpath)"
+
+	if [ -h "$command_fullpath" ]
+	then
+		echo "is symlink"
+		echo "canonical_fullpath : $canonical_fullpath"
+	else
+		echo "is canonical"
+		echo "canonical_fullpath : $canonical_fullpath"
+	fi
+
+	exit 0
+
+
+
 	no_of_program_parameters=$#
 	tutti_param_string="$@"
 
 	#echo $tutti_param_string
 	
-	config_file_fullpath="/${HOME}/.config/file-encrypter.config" # a full path to a file
+	
 	line_type="" # global...
 	test_line="" # global...
 
@@ -84,6 +107,9 @@ function main
 	# check program dependencies and requirements
 	check_program_requirements
 
+	# do installer-like tasks
+	do_installer_tasks
+
 	# verify and validate program positional parameters
 	verify_and_validate_program_arguments
 
@@ -119,18 +145,18 @@ function main
 	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
 	###############################################################################################
 
-	if [ -n "$config_file_fullpath" ]
-	then
-		display_current_config_file
-
-		get_user_config_edit_decision
-
-		# test whether the configuration files' format is valid, and that each line contains something we're expecting
-		validate_config_file_content
-
-		# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-		import_file_encryption_configuration
-	fi
+	#if [ -n "$config_file_fullpath" ]
+	#then
+	#	display_current_config_file
+#
+	#	get_user_config_edit_decision
+#
+	#	# test whether the configuration files' format is valid, and that each line #contains something we're expecting
+	#	validate_config_file_content
+#
+	#	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+	#	import_file_encryption_configuration
+	#fi
 
 	#exit 0 #debug
 
@@ -138,6 +164,11 @@ function main
 	###############################################################################################
 	# PROGRAM-SPECIFIC FUNCTION CALLS:	
 	###############################################################################################	
+
+	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+	import_file_encryption_configuration
+
+	exit 0
 	
 	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 	check_encryption_platform
@@ -167,6 +198,15 @@ function main
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
+# task for our future installer. simple for now.
+# bit contrived to be doing this at runtime, since we don't know from where running script was actually called.
+function do_installer_tasks()
+{	
+	mkdir -p "${HOME}/.local/share/adebayo10k"	# 2>installation logfile 
+	#ln -s  "${HOME}/.local/share/adebayo10k/preset-profile-builder.sh" 
+}
+
+################################################################
 # exit program with non-zero exit code
 function exit_with_error()
 {	
@@ -180,7 +220,7 @@ function exit_with_error()
 	exit $error_code
 }
 
-###############################################################################################
+################################################################
 # check whether dependencies are already installed ok on this system
 function check_program_requirements() 
 {
@@ -243,11 +283,16 @@ function display_program_header()
 	echo -e "		\033[33m===================================================================\033[0m";
 	echo
 
-	# REPORT SOME SCRIPT META-DATA
-	echo "The absolute path to this script is:	$0"
-	echo "Script root directory is:		$(dirname $0)"
-	echo "Script filename is:			$(basename $0)" && echo
+	# REPORT SOME SCRIPT INSTALLATION VARIABLES
+	# 
+	echo "command_fullpath : $command_fullpath"
+	echo "command_dirname : $command_dirname"
+	echo "command_basename : $command_basename"
 
+	echo "canonical_fullpath : $canonical_fullpath"
+	echo "canonical_dirname : $canonical_dirname"
+	echo "canonical_basename : $canonical_basename"
+	
 	if type cowsay > /dev/null 2>&1
 	then
 		cowsay "YES, ${USER}!"
@@ -303,22 +348,17 @@ function get_user_config_edit_decision()
 	
 }
 
-####################################################################################################
-#
-function import_file_encryption_configuration()
-{
+##################################################################
+#here="./preset-profile-builder.sh"
+here="./preset-profile-builder.sh"
 
-	echo  "Press ENTER to start importing to variables..." && echo
+# included source files for json profile import functions
+source "$here"
 
-	read
+# test if command_fullpath is a symbolic link. if so, find it's target and set that
+# (repeat until regular file and not a symlink)
 
-	get_single_value_string_variables # ie encryption system, output file format and sender uid
-	get_multiple_value_string_variables # ie recipient_uid_list
-
-	# NOW DO ANY TESTS ON IMPORTED VALUES HERE.
-
-}
-##########################################################################################################
+##################################################################
 # test whether the configuration files' format is valid,
 # and that each line contains something we're expecting
 function validate_config_file_content()
@@ -628,7 +668,7 @@ function create_generic_pub_key_encryption_command_string
 
 
 ###############################################################################################
-
+#
 function get_recipient_uid
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
@@ -680,9 +720,9 @@ function get_recipient_uid
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
-
-###############################################################################################
-# 
+#
+#################################################################################################
+## 
 function get_sender_uid
 {
 	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
@@ -714,7 +754,7 @@ function get_sender_uid
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
-
+#
 ###############################################################################################
 #
 function set_command_parameters
