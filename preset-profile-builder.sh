@@ -43,22 +43,47 @@ function import_file_encryption_configuration ()
 	echo "${#profile_id_array[@]}"
 	echo && echo
 
+
+
 	#IFS=$OIFS
 
 	for profile_id in "${profile_id_array[@]}"
 	do
-    #clear # clear console before beginning the new quiz
 		echo "profile_id: $profile_id" && echo && echo
-		print_each_profile "$profile_id"
+		store_profiles "$profile_id"
 	done
 
+	# get user preset profile choice | direct parameter input (implement later)
+	get_user_profile_choice
+	chosen_profile_id=$?
+	echo "chosen_profile_id : $chosen_profile_id"
+
+	exit 0
+
+	# assign profile property values to variables for gpg encryption command
+	assign_chosen_profile_values
 
 }
 
 ##########################################################
-
-# NOTE: arrays seem more useful in BASH than the long strings from jq
-function print_each_profile()
+# 
+# store each retrieved profile as structured data in memory.
+# this avoids going back to read from disk.
+# use and indexed array to iterate and assoc array for data var => value
+# need to contrive a primary key across these two arrays
+# indexed array:
+#=========
+# 0	=>	"1:profile_name"
+# 1	=>	"1:profile_description"
+# 2	=>	"1:encryption_system"
+#...
+# associative array:
+#===========
+# "1:profile_name"			=>			"1"	
+# "1:profile_description"	=>			"local administration"
+# "1:encryption_system"	=>			"public key"
+#...
+function store_profiles()
 {
 	#read
 
@@ -71,6 +96,8 @@ function print_each_profile()
 	echo "profile_name_string:"
 	echo -e "$profile_name_string"
 	echo && echo
+
+
 
 	profile_description_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .profileDescription') 
 	echo "profile_description_string:"
@@ -97,6 +124,9 @@ function print_each_profile()
 	echo "recipient_uid_list_string:"
 	echo -e "$recipient_uid_list_string"
 	echo && echo
+
+	# we actually need an IFS separated string now
+	# try jq -j, with sed replacing space with |
 	
 	#OIFS=$IFS
 	#IFS='|'
@@ -116,4 +146,35 @@ function print_each_profile()
 	# run the actual quiz using our current quiz data
 	#ask_quiz_questions
 
+}
+
+##########################################################
+
+function get_user_profile_choice()
+{
+	echo -e "\033[33mWHICH PROFILE TO RUN?\033[0m" && sleep 1 && echo
+	echo -e "\033[33mCHOOSE A PROFILE ID [1-"${#profile_id_array[@]}"].\033[0m" && echo
+
+	read profile_id_choice
+    
+    # validate user input (TODO: separate these out)
+    # 
+    if  [[ "$profile_id_choice" =~ ^[0-9]+$ ]] && [ "$profile_id_choice" -ge 1 ] && [ "$profile_id_choice" -le "${#profile_id_array[@]}"  ]  #
+    then
+      return "$profile_id_choice"
+    else
+      ## exit with error code and message
+      msg="The profile id you entered was too bad. Exiting now..."
+	  exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
+    fi
+	
+}
+
+##########################################################
+
+function assign_chosen_profile_values() 
+{
+
+	:
+	
 }
