@@ -12,6 +12,40 @@
 #: Options		:
 ##
 
+
+##################################################################
+##################################################################
+# THIS STUFF IS HAPPENING BEFORE MAIN FUNCTION CALL:
+
+# must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course.
+
+# at runtime, command_fullpath may be either a symlink file or actual target source file
+command_fullpath="$0"
+command_dirname="$(dirname $0)"
+command_basename="$(basename $0)"
+
+# if a symlink file, then we need a reference to the canonical file name, as that's the location where all our required source files will be.
+# we'll test whether a symlink, then use readlink -f or realpath -e although those commands return canonical file whether symlink or not.
+# 
+canonical_fullpath="$(readlink -f $command_fullpath)"
+
+if [ -h "$command_fullpath" ]
+then
+	echo "is symlink"
+	echo "canonical_fullpath : $canonical_fullpath"
+else
+	echo "is canonical"
+	echo "canonical_fullpath : $canonical_fullpath"
+fi
+
+# included source files for json profile import functions
+source "$(dirname $canonical_fullpath)/gpg-key-backup-profile-builder.sh"
+
+
+# THAT STUFF JUST HAPPENED BEFORE MAIN FUNCTION CALL!
+##################################################################
+##################################################################
+
 function main
 {	
 	###############################################################################################
@@ -35,7 +69,7 @@ function main
 	expected_no_of_program_parameters=0
 	actual_no_of_program_parameters=$#
 
-	config_file_fullpath="${HOME}/.config/key-generator-and-manager.config" # a full path to a file
+	config_file_fullpath="${HOME}/.config/gpg-key-backup-config.json" # a full path to a file
 	line_type="" # global...
 	test_line="" # global...
 
@@ -112,24 +146,26 @@ function main
 	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
 	###############################################################################################
 
-	if [ -n "$config_file_fullpath" ]
-	then
-		display_current_config_file
-
-		get_user_config_edit_decision
+	#if [ -n "$config_file_fullpath" ]
+	#then
+	#	display_current_config_file
+#
+	#	get_user_config_edit_decision
 
 		# test whether the configuration files' format is valid, and that each line contains something we're expecting
-		validate_config_file_content
+	#	validate_config_file_content
 
-		# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-		import_key_management_configuration
-	fi
+		
+	#fi
 
 	#exit 0 #debug
 
 	###############################################################################################
 	# PROGRAM-SPECIFIC FUNCTION CALLS:	
 	###############################################################################################
+
+	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
+	import_key_management_configuration
 
 	create_all_synchronised_dirs
 
@@ -222,7 +258,7 @@ function display_program_header(){
 
 	if type cowsay > /dev/null 2>&1
 	then
-		cowsay "YES, ${USER}!"
+		cowsay "Hello, ${USER}!"
 	fi
 		
 }
@@ -277,33 +313,8 @@ function get_user_config_edit_decision(){
 }
 
 ###############################################################################################
-# test whether the configuration files' format is valid,
-# and that each line contains something we're expecting
-function validate_config_file_content()
-{
-	while read lineIn
-	do
-		# any content problems handled in the test_and_set_line_type function:
-        test_and_set_line_type "$lineIn"
-        return_code="$?"
-        echo "return code for tests on that line was: $return_code"
-        if [ $return_code -eq 0 ]
-        then
-            # tested line must have contained expected content
-            # this function has no need to know which type of line it was
-            echo "That line was expected!" && echo
-        else
-						msg="That line was NOT expected! Exiting now..."
-						exit_with_error "$E_UNKNOWN_ERROR" "$msg"
-        fi
-
-	done < "$config_file_fullpath"
-}
-
-###############################################################################################
 function create_all_synchronised_dirs()
 {
-
 	# 3. WE MUST NOW ESTABLISH THAT ALL THE DIRECTORIES NEEDED FOR OUR SYSTEM OF BACKUP AND SYNCHRONISATION \
 	#    +ALREADY EXIST, AND IF NOT, CREATE THEM:
 	# TODO:  # mkdir -p // no error if exists (idempotent), make parents structure /a/b/c as needed MAY BE MORE EFFICIENT
@@ -378,9 +389,24 @@ get_config_values_for_all_dirs
 # public_keyring_default_directory_fullpath
 # revocation_certificate_default_directory
 
+echo "synchronised_location_holding_dir_fullpath:"
+echo -e "$synchronised_location_holding_dir_fullpath"
+echo && echo
+
+echo "public_keyring_default_directory_fullpath:"
+echo -e "$public_keyring_default_directory_fullpath"
+echo && echo
+
+echo "revocation_certificate_default_directory:"
+echo -e "$revocation_certificate_default_directory"
+echo && echo
+
+
+exit 0
+
 # NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
 # REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
-
+## NOTE: THE DIRECTORY DOESN'T EXIST UNTIL AFTER KEYS HAVE BEEN MADE FOR THE FIRST TIME! 
 #for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
 #	"$revocation_certificate_default_directory_fullpath"
 for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"
@@ -412,28 +438,7 @@ done
 
 
 ##########################################################################################################
-# test whether the configuration files' format is valid,
-# and that each line contains something we're expecting
-function check_config_file_content()
-{
-	while read lineIn
-	do
-		# any content problems handled in the test_and_set_line_type function:
-    test_and_set_line_type "$lineIn"
-    return_code="$?"
-    echo "return code for tests on that line was: $return_code"
-    if [ $return_code -eq 0 ]
-    then
-        # if tested line contained expected content
-        # :
-        echo "That line was expected!" && echo
-    else
-			msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_UNKNOWN_ERROR" "$msg"
-    fi
 
-	done < "$config_file_fullpath"
-}
 
 ###########################################################################################################
 # returns 
@@ -958,132 +963,6 @@ function sanitise_absolute_path_value ##
 	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-##########################################################################################################
-# A DUAL PURPOSE FUNCTION - CALLED TO EITHER TEST OR TO SET LINE TYPES:
-# TESTS WHETHER THE LINE IS OF EITHER VALID comment, empty/blank OR string (variable or value) TYPE,
-# SETS THE GLOBAL line_type AND test_line variableS.
-function test_and_set_line_type
-{
-	#echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	# TODO: ADD ANOTHER CONFIG FILE VALIDATION TEST:
-	# TEST THAT THE LINE FOLLOWING A VARIABLE= ALPHANUM STRING MUST BE A VALUE/ ALPHANUM STRING, ELSE FAIL
-	test_line="${1}"
-	line_type=""
-
-	if [[ "$test_line" == "#"* ]] # line is a comment (OR *"#"* in case space char before the # ? - try it)
-	then
-		line_type="comment"
-		#echo "line_type set to: $line_type"
-	elif [[ "$test_line" =~ [[:blank:]] || "$test_line" == "" ]] # line empty or contains only spaces or tab characters
-	then
-		line_type="empty"
-		#echo "line_type set to: $line_type"
-	elif [[ "$test_line" =~ [[:alnum:]] ]] # line is a string (not commented)
-	then
-		echo -n "Alphanumeric string  :  "
-		if [[ "$test_line" == *"=" ]]
-		then
-			line_type="variable_string"
-			echo "line_type set to: "$line_type" for "$test_line""
-		elif [[ "$test_line" =~ $all_filepath_regex ]]	#
-		then
-			line_type="value_string"
-			echo "line_type set to: "$line_type" for "$test_line""
-		else
-            echo "line_type set to: \"UNKNOWN\" for "${test_line}""
-			echo "Failsafe : Couldn't match the Alphanum string"
-			return $E_UNEXPECTED_BRANCH_ENTERED
-		fi
-	else
-	    echo "line_type set to: \"UNKNOWN\" for "$test_line""
-		echo "Failsafe : Couldn't match this line with ANY line type!"
-		return $E_UNEXPECTED_BRANCH_ENTERED
-	fi
-
-	#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-##########################################################################################################
-# for any absolute file path value to be imported...
-function get_config_values_for_all_dirs
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	for keyword in "synchronised_location_holding_dir_fullpath=" "public_keyring_default_directory_fullpath="\
-	"revocation_certificate_default_directory_fullpath="
-	do
-		line_type=""
-		value_collection="OFF"
-
-		while read lineIn
-		do
-			test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-			if [[ $value_collection == "ON" && $line_type == "value_string" ]]
-			then
-				sanitise_absolute_path_value "$lineIn"
-				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-				echo "test_line has the value: $test_line"
-				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-				set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
-
-			elif [[ $value_collection == "ON" && $line_type != "value_string" ]]
-			# last value has been collected for this holding directory
-			then
-				value_collection="OFF" # just because..
-				break # end this while loop, as last value has been collected for this holding directory
-			else
-				# value collection must be OFF
-				:
-			fi			
-			
-			# switch value collection ON for the NEXT line read
-			# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-			if [[ "$lineIn" == "$keyword" ]]
-			then
-				value_collection="ON"
-			fi
-
-		done < "$config_file_fullpath"
-
-		# ASSIGN
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-		echo "test_line has the value: $1"
-		echo "the keyword on this for-loop is set to: $keyword"
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-		if [ "$keyword" == "synchronised_location_holding_dir_fullpath=" ]
-		then
-			synchronised_location_holding_dir_fullpath="$1"
-			# test_line just set globally in sanitise_absolute_path_value function
-		elif [ "$keyword" == "public_keyring_default_directory_fullpath=" ]
-		then
-			public_keyring_default_directory_fullpath="$1"
-			# test_line just set globally in sanitise_absolute_path_value function
-		elif [ "$keyword" == "revocation_certificate_default_directory_fullpath=" ]
-		then
-			revocation_certificate_default_directory_fullpath="$1"
-			# test_line just set globally in sanitise_absolute_path_value function
-			#revocation_certificate_default_directory_fullpath="${HOME}/.gnupg/openpgp-revocs.d"
-		else
-			echo "Failsafe branch entered"
-			exit $E_UNEXPECTED_BRANCH_ENTERED
-		fi
-
-		set -- # unset that positional parameter we used to get test_line out of that while read subprocess
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-		echo "test_line (AFTER set --) has the value: $1"
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-	done
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-	#read	## debug
-
 }
 
 ##########################################################################################################
