@@ -39,7 +39,7 @@ else
 fi
 
 # included source files for json profile import functions
-source "$(dirname $canonical_fullpath)/gpg-key-backup-profile-builder.sh"
+source "$(dirname $canonical_fullpath)/gpg-key-backup-profile-builder.inc.sh"
 
 
 # THAT STUFF JUST HAPPENED BEFORE MAIN FUNCTION CALL!

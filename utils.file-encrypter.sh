@@ -38,7 +38,7 @@ else
 fi
 
 # included source files for json profile import functions
-source "$(dirname $canonical_fullpath)/preset-profile-builder.sh"
+source "$(dirname $canonical_fullpath)/preset-profile-builder.inc.sh"
 
 
 
@@ -227,7 +227,7 @@ function main
 function do_installer_tasks()
 {	
 	mkdir -p "${HOME}/.local/share/adebayo10k"	# 2>installation logfile 
-	#ln -s  "${HOME}/.local/share/adebayo10k/preset-profile-builder.sh" 
+	#ln -s  "${HOME}/.local/share/adebayo10k/preset-profile-builder.inc.sh" 
 }
 
 ################################################################
