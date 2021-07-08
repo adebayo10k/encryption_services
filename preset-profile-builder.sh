@@ -43,8 +43,6 @@ function import_file_encryption_configuration ()
 	echo "${#profile_id_array[@]}"
 	echo && echo
 
-
-
 	#IFS=$OIFS
 
 	for profile_id in "${profile_id_array[@]}"
@@ -58,10 +56,8 @@ function import_file_encryption_configuration ()
 	chosen_profile_id=$?
 	echo "chosen_profile_id : $chosen_profile_id"
 
-	exit 0
-
 	# assign profile property values to variables for gpg encryption command
-	assign_chosen_profile_values
+	assign_chosen_profile_values 
 
 }
 
@@ -73,15 +69,15 @@ function import_file_encryption_configuration ()
 # need to contrive a primary key across these two arrays
 # indexed array:
 #=========
-# 0	=>	"1:profile_name"
-# 1	=>	"1:profile_description"
-# 2	=>	"1:encryption_system"
+# 0	=>	"1^^profile_name"
+# 1	=>	"1^^profile_description"
+# 2	=>	"1^^encryption_system"
 #...
 # associative array:
 #===========
-# "1:profile_name"			=>			"1"	
-# "1:profile_description"	=>			"local administration"
-# "1:encryption_system"	=>			"public key"
+# "1^^profile_name"		 	 =>			"local admin"	
+# "1^^profile_description"	=>			"local administration"
+# "1^^encryption_system" =>			"public key"
 #...
 function store_profiles()
 {
@@ -90,61 +86,100 @@ function store_profiles()
 	id="$1"	
 	# the unique profile identifier (aka profile_id)
 	id="${id}"
-	echo -e "unique id to FILTER from JSON: $id" 
+	echo -e "unique id to FILTER from JSON: $id"
 
 	profile_name_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .profileName') 
 	echo "profile_name_string:"
 	echo -e "$profile_name_string"
 	echo && echo
 
+	primary_key_string="${id}^^profile_name"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$profile_name_string"
 
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
+
+	###
 
 	profile_description_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .profileDescription') 
 	echo "profile_description_string:"
 	echo -e "$profile_description_string"
 	echo && echo
 
+	primary_key_string="${id}^^profile_description"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$profile_description_string"
+
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
+
+	###
+
 	encryption_system_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .encryptionSystem') 
 	echo "encryption_system_string:"
 	echo -e "$encryption_system_string"
 	echo && echo
+
+	primary_key_string="${id}^^encryption_system"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$encryption_system_string"
+
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
+
+	###
 
 	output_file_format_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .outputFileFormat') 
 	echo "output_file_format_string:"
 	echo -e "$output_file_format_string"
 	echo && echo
 
+	primary_key_string="${id}^^output_file_format"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$output_file_format_string"
+
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
+
+	###
+
 	sender_uid_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .senderUID') 
 	echo "sender_uid_string:"
 	echo -e "$sender_uid_string"
 	echo && echo
 
+	primary_key_string="${id}^^sender_uid"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$sender_uid_string"
 
-	recipient_uid_list_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .recipientUIDList[]') 
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
+
+	###
+
+	recipient_uid_list_string=$(cat "$config_file_fullpath" | jq -j --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .recipientUIDList[]' | sed "s/''/|/g" | sed "s/^'//" | sed "s/'$//") 
 	echo "recipient_uid_list_string:"
 	echo -e "$recipient_uid_list_string"
 	echo && echo
 
-	# we actually need an IFS separated string now
+	# we actually only need an IFS separated string now
 	# try jq -j, with sed replacing space with |
-	
-	#OIFS=$IFS
-	#IFS='|'
 
-	recipient_uid_list_array=( $recipient_uid_list_string )
-	echo "recipient_uid_list_array:"	
-	echo "${recipient_uid_list_array[@]}"
-	echo && echo
-	echo "recipient_uid_list_array size:"
-	echo "${#recipient_uid_list_array[@]}"
-	echo && echo
+	primary_key_string="${id}^^recipient_uid_list"
+	profile_keys_indexed_array+=( "${primary_key_string}" )
+	profile_key_value_assoc_array["$primary_key_string"]="$recipient_uid_list_string"
 
-	#IFS=$OIFS
+	echo $primary_key_string
+	echo ${profile_keys_indexed_array[@]}
+	echo && echo "###"
 
-	#read # a pause so we can read the debug output
-
-	# run the actual quiz using our current quiz data
-	#ask_quiz_questions
+	###
 
 }
 
@@ -175,6 +210,49 @@ function get_user_profile_choice()
 function assign_chosen_profile_values() 
 {
 
-	:
+	echo "passed out chosen_profile_id : $chosen_profile_id" 
+
+	# we now want to iterate over profile_keys_indexed_array matching the values that start with our $chosen_profile_id.
+	# if match use as key to get the value from $profile_key_value_assoc_array.
+	# case key string ends ... assign value to ...
+
+	# order or iteration is not important, so think we just need the associative array.
+
+	for key in "${!profile_key_value_assoc_array[@]}"
+	do
+		echo $key
+		test_profile_id="${key%^^*}"
+		echo "$test_profile_id"
+		test_profile_property_name="${key#*^^}"
+		echo "$test_profile_property_name"
+
+		# test key for match with our chosen_profile_id
+		if [ "$test_profile_id" -eq "$chosen_profile_id" ]
+		then
+			# assign values
+			echo "MATCH, MATCH"
+			case $test_profile_property_name in
+				'profile_name')		profile_name="${profile_key_value_assoc_array[$key]}"
+					;;
+				'profile_description')	profile_description="${profile_key_value_assoc_array[$key]}"
+					;;
+				'encryption_system')	encryption_system="${profile_key_value_assoc_array[$key]}"
+					;;
+				'output_file_format')	output_file_format="${profile_key_value_assoc_array[$key]}"
+					;;
+				'sender_uid')	sender_uid="${profile_key_value_assoc_array[$key]}"
+					;;
+		 		'recipient_uid_list')	OIFS=$IFS; IFS='|'
+										recipient_uid_list=(
+											${profile_key_value_assoc_array[$key]}
+										)									
+										IFS=$OIFS
+					;;
+				*) 		msg="Unrecognised profile property name. Exiting now..."
+	  					exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+					;; 
+			esac
+		fi
+	done
 	
 }

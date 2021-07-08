@@ -16,8 +16,9 @@
 ##################################################################
 # THIS STUFF IS HAPPENING BEFORE MAIN FUNCTION CALL:
 
-# must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course
-# may be either a symlink file or actual target source file
+# must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course.
+
+# at runtime, command_fullpath may be either a symlink file or actual target source file
 command_fullpath="$0"
 command_dirname="$(dirname $0)"
 command_basename="$(basename $0)"
@@ -79,9 +80,14 @@ function main
 
 	################################################
 
+	declare -a profile_keys_indexed_array=()
+	declare -A profile_key_value_assoc_array=()
+
 	# independent variables
 	encryption_system= # public_key | symmetric_key
 	output_file_format= # ascii | binary
+	profile_name=
+	profile_description=
 
 	# dependent variables
 	encryption_system_option= # --encrypt | --symmetric
@@ -111,9 +117,9 @@ function main
 
 	##################################################
 
-	###############################################################################################
+	################################################################
 	# 'SHOW STOPPER' CHECKING FUNCTION CALLS:	
-	###############################################################################################
+	################################################################
 
 	# check program dependencies and requirements
 	check_program_requirements
@@ -156,21 +162,10 @@ function main
 	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
 	###############################################################################################
 
-	#if [ -n "$config_file_fullpath" ]
-	#then
-	#	display_current_config_file
-#
-	#	get_user_config_edit_decision
-#
-	#	# test whether the configuration files' format is valid, and that each line #contains something we're expecting
-	#	validate_config_file_content
-#
-	#	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
-	#	import_file_encryption_configuration
-	#fi
-
-	#exit 0 #debug
-
+	if [ -n "$config_file_fullpath" ]
+	then
+		:
+	fi
 
 	###############################################################################################
 	# PROGRAM-SPECIFIC FUNCTION CALLS:	
@@ -178,6 +173,24 @@ function main
 
 	# IMPORT CONFIGURATION INTO PROGRAM VARIABLES
 	import_file_encryption_configuration
+
+	echo "profile_name: $profile_name"
+	echo && echo
+	echo "profile_description: $profile_description"
+	echo && echo
+	echo "output_file_format: $output_file_format"
+	echo && echo
+	echo "encryption_system: $encryption_system"
+	echo && echo
+	echo "sender_uid: $sender_uid"
+	echo && echo
+	echo "recipient_uid_list:"	
+	echo "${recipient_uid_list[@]}"
+	echo && echo
+	echo "recipient_uid_list size:"
+	echo "${#recipient_uid_list[@]}"
+	echo && echo
+
 
 	exit 0
 	
@@ -329,61 +342,6 @@ function get_user_permission_to_proceed()
 }
 
 ################################################################
-function display_current_config_file()
-{
-	echo && echo CURRENT CONFIGURATION FILE...
-	echo && sleep 1
-
-	cat "$config_file_fullpath"
-}
-
-#################################################################
-function get_user_config_edit_decision()
-{
-	echo " Edit configuration file? [Y/N]"
-	echo && sleep 1
-
-	read edit_config
-	case $edit_config in 
-	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
-    		vi "$config_file_fullpath" # /etc exists, so no need to test access etc.
-    		# also, no need to validate config file path here, since we've just edited the config file!
-				;;
-	[nN])	echo
-			echo " Ok, using the  current configuration" && sleep 1
-				;;			
-	*) 		echo " Give me a Y or N..." && echo && sleep 1
-			get_user_config_edit_decision
-				;;
-	esac 
-	
-}
-
-##################################################################
-# test whether the configuration files' format is valid,
-# and that each line contains something we're expecting
-function validate_config_file_content()
-{
-	while read lineIn
-	do
-		# any content problems handled in the test_and_set_line_type function:
-        test_and_set_line_type "$lineIn"
-        return_code="$?"
-        echo "return code for tests on that line was: $return_code"
-        if [ $return_code -eq 0 ]
-        then
-            # tested line must have contained expected content
-            # this function has no need to know which type of line it was
-            echo "That line was expected!" && echo
-        else
-						msg="That line was NOT expected!. Exiting now..."
-						exit_with_error 1 "$msg"
-        fi
-
-	done < "$config_file_fullpath" 
-
-}
-##########################################################################################################
 # program expected one or more absolute paths to plaintext files to be encrypted
 # this was checked at start, and the incoming_array created.
 # this function now does the file path tests on each of them...
@@ -946,194 +904,8 @@ function sanitise_value ##
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }
-##########################################################################################################
 
-# A DUAL PURPOSE FUNCTION - CALLED TO EITHER TEST OR TO SET LINE TYPES:
-# TESTS WHETHER THE test_line IS OF EITHER VALID comment, empty/blank OR string (variable or value) TYPE,
-# SETS THE GLOBAL line_type AND test_line variableS.
-function test_and_set_line_type
-{
-	#echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	# TODO: ADD ANOTHER CONFIG FILE VALIDATION TEST:
-	# TEST THAT THE LINE FOLLOWING A VARIABLE= ALPHANUM STRING MUST BE A VALUE/ ALPHANUM STRING, ELSE FAIL
-	test_line="${1}"
-	line_type=""
-
-	if [[ "$test_line" == "#"* ]] # line is a comment (OR *"#"* in case space char before the # ? - try it)
-	then
-		line_type="comment"
-		#echo "line_type set to: $line_type"
-	elif [[ "$test_line" =~ [[:blank:]] || "$test_line" == "" ]] # line empty or contains only spaces or tab characters
-	then
-		line_type="empty"
-		#echo "line_type set to: $line_type"
-	elif [[ "$test_line" =~ [[:alnum:]] ]] # line is a string (not commented)
-	then
-		echo -n "Alphanumeric string  :  "
-		if [[ "$test_line" == *"=" ]]
-		then
-			line_type="variable_string"
-			echo "line_type set to: "$line_type" for "$test_line""
-		elif [[ "$test_line" =~ $email_regex ]]	#
-		then
-			line_type="value_string"
-			echo "line_type set to: "$line_type" for "$test_line""
-		elif [[ "$test_line" =~ ^(public_key|symmetric_key|ascii|binary)$ ]]	#
-		then
-			line_type="value_string"
-			echo "line_type set to: "$line_type" for "$test_line""
-		else
-            echo "line_type set to: \"UNKNOWN\" for "${test_line}""
-			echo "Failsafe : Couldn't match the Alphanum string"
-			return $E_UNEXPECTED_BRANCH_ENTERED
-		fi
-	else
-	    echo "line_type set to: \"UNKNOWN\" for "$test_line""
-		echo "Failsafe : Couldn't match this line with ANY line type!"
-		return $E_UNEXPECTED_BRANCH_ENTERED
-	fi
-
-	#echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-##########################################################################################################
-# for any absolute file path value to be imported...
-function get_single_value_string_variables
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	for keyword in "encryption_system=" "output_file_format=" "sender_uid="
-	do
-		line_type=""
-		value_collection="OFF"
-
-		while read lineIn
-		do
-			test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-			if [[ $value_collection == "ON" && $line_type == "value_string" ]]
-			then
-				sanitise_value "$lineIn"
-				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-				echo "test_line has the value: $test_line"
-				echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-				set -- $test_line # using 'set' to get test_line out of this subprocess into a positional parameter ($1)
-
-			elif [[ $value_collection == "ON" && $line_type != "value_string" ]]
-			# last value has been collected for this holding directory
-			then
-				value_collection="OFF" # just because..
-				break # end this while loop, as last value has been collected for this holding directory
-			else
-				# value collection must be OFF
-				:
-			fi			
-			
-			# switch value collection ON for the NEXT line read
-			# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-			if [[ "$lineIn" == "$keyword" ]]
-			then
-				value_collection="ON"
-			fi
-
-		done < "$config_file_fullpath"
-
-		# test_line was just set globally in sanitise_absolute_path_value function
-		# ASSIGN
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-		echo "test_line has the value: $1"
-		echo "the keyword on this for-loop is set to: $keyword"
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-		
-		if [ "$keyword" == "encryption_system=" ]
-		then
-			encryption_system="$1"			
-		elif [ "$keyword" == "output_file_format=" ]
-		then
-			output_file_format="$1"
-		elif [ "$keyword" == "sender_uid=" ]
-		then
-			sender_uid="$1"
-		else
-			msg="Failsafe branch entered. Exiting now..."
-			exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
-		fi
-
-		set -- # unset that positional parameter we used to get test_line out of that while read subprocess
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-		echo "test_line (AFTER set --) has the value: $1"
-		echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-	done
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-##########################################################################################################
-## 
-function get_multiple_value_string_variables
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	keyword="recipient_uid_list="
-
-	# NOW MULTIPLE LINE VALUES ASSIGNED TO ARRAY ELEMENT, SO BIT DIFFERENCE LOGIC
-	line_type=""
-	value_collection="OFF"
-	# unset path_list?
-	declare -a uid_list=() # local array to store one or more sanitised recipient uids
-
-	while read lineIn
-	do
-
-		test_and_set_line_type "$lineIn" # interesting for the line FOLLOWING that keyword find
-
-		if [[ "$value_collection" == "ON" && "$line_type" == "value_string" ]]
-		then
-			
-			sanitise_value "$lineIn"
-			uid_list+=("${test_line}")
-			# Not sure why we CAN access test_line here, when we had to use 'set' in the other functions?!?
-			# Seems to work ok, so no complaining.
-			
-		elif [[ "$value_collection" == "ON" && "$line_type" != "value_string" ]] # last value has been collected for ...
-		then
-			
-			value_collection="OFF" # just because..
-			break # end this while loop, as last value has been collected for ....y
-		else
-			# value collection must be OFF
-			:
-		fi
-				
-		# switch value collection ON for the NEXT line read
-		# THEREFORE WE'RE ASSUMING THAT A KEYWORD CANNOT EXIST ON THE 1ST LINE OF THE FILE
-		if [[ "$lineIn" == "$keyword" ]]
-		then
-			value_collection="ON"
-		fi
-		
-	done < "$config_file_fullpath"
-
-	## debug7..
-	echo && echo "The values in the uid_list array just before it's cloned by the recipient_uid_list array:"
-	for value in "${uid_list[@]}"
-	do
-		echo -n "$value "
-
-	done
-
-	# ASSIGN THE LOCAL ARRAY BY CLONING
-	recipient_uid_list=("${uid_list[@]}")
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-
-}
-
-##########################################################################################################
-
-##########################################################################################################
+#################################################################
 
 # firstly, we test that the parameter we got is of the correct form for an absolute file | sanitised directory path 
 # if this test fails, there's no point doing anything further
