@@ -146,17 +146,10 @@ function main
 	# FUNCTIONS CALLED ONLY IF THIS PROGRAM USES A CONFIGURATION FILE:	
 	###############################################################################################
 
-	#if [ -n "$config_file_fullpath" ]
-	#then
-	#	display_current_config_file
-#
-	#	get_user_config_edit_decision
-
-		# test whether the configuration files' format is valid, and that each line contains something we're expecting
-	#	validate_config_file_content
-
-		
-	#fi
+	if [ -n "$config_file_fullpath" ]
+	then
+		:		
+	fi
 
 	#exit 0 #debug
 
@@ -172,6 +165,8 @@ function main
 	# issue gpg commands to list keys for now... just to see what's there
 	bash -c "gpg --list-key"
 	bash -c "gpg --list-secret-keys"
+
+	exit 0
 
 	generate_and_manage_keys
 
@@ -282,35 +277,7 @@ function get_user_permission_to_proceed(){
 	esac
 }
 
-###############################################################################################
-function display_current_config_file(){
-	
-	echo && echo CURRENT CONFIGURATION FILE...
-	echo && sleep 1
 
-	cat "$config_file_fullpath"
-}
-
-###############################################################################################
-function get_user_config_edit_decision(){
-
-	echo " Edit configuration file? [Y/N]"
-	echo && sleep 1
-
-	read edit_config
-	case $edit_config in 
-	[yY])	echo && echo "Opening an editor now..." && echo && sleep 2
-    		vi "$config_file_fullpath" # /etc exists, so no need to test access etc.
-    		# TODO: Should we now validate the configuration file again?
-				;;
-	[nN])	echo
-			echo " Ok, using the  current configuration" && sleep 1
-				;;			
-	*) 		echo " Give me a Y or N..." && echo && sleep 1
-			get_user_config_edit_decision
-				;;
-	esac	
-}
 
 ###############################################################################################
 function create_all_synchronised_dirs()
@@ -378,69 +345,80 @@ function create_all_synchronised_dirs()
 #
 function import_key_management_configuration()
 {
+	get_config_values_for_all_dirs
+	# for these dirs:
+	# synchronised_location_holding_dir_fullpath
+	# public_keyring_default_directory_fullpath
+	# revocation_certificate_default_directory
 
-echo  "Press ENTER to start importing..." && echo
+	# NOW CHANGE THE VALUES
+	#for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
+	#	"$revocation_certificate_default_directory_fullpath"
+	for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"
+	do
 
-read
+		# sanitise absolute paths by trimming trailing / etc.
+		sanitise_absolute_path_value "${dir}"
+		echo "testline: $test_line"
 
-get_config_values_for_all_dirs
-# for these dirs:
-# synchronised_location_holding_dir_fullpath
-# public_keyring_default_directory_fullpath
-# revocation_certificate_default_directory
+		case $dir in
+			$synchronised_location_holding_dir_fullpath)		synchronised_location_holding_dir_fullpath="$test_line"
+				;;
+			$public_keyring_default_directory_fullpath)	public_keyring_default_directory_fullpath="$test_line"
+				;;
+			'encryption_system')	echo "nil"; exit 1 # debug
+				;;
+			*) 		msg="Unrecognised profile property name. Exiting now..."
+					exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+				;; 
+		esac
 
-echo "synchronised_location_holding_dir_fullpath:"
-echo -e "$synchronised_location_holding_dir_fullpath"
-echo && echo
+	done
 
-echo "public_keyring_default_directory_fullpath:"
-echo -e "$public_keyring_default_directory_fullpath"
-echo && echo
+	# NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
+	# REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
+	## NOTE: THE DIRECTORY DOESN'T EXIST UNTIL AFTER KEYS HAVE BEEN MADE FOR THE FIRST TIME! 
+	for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"
+	do
+		# this valid form test works for sanitised directory paths too
+		test_file_path_valid_form "$dir"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo "DIRECTORY PATH IS OF VALID FORM"
+		else
+			msg="The valid form test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		fi	
 
-echo "revocation_certificate_default_directory:"
-echo -e "$revocation_certificate_default_directory"
-echo && echo
+		# if the above test returns ok, ...
+		test_dir_path_access "$dir"
+		return_code=$?
+		if [ $return_code -eq 0 ]
+		then
+			echo "The full path to the DIRECTORY is: $dir"
+		else
+			msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
+			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
+		fi
+	done
 
-
-exit 0
-
-# NOW DO ALL THE DIRECTORY ACCESS TESTS FOR IMPORTED PATH VALUES HERE.
-# REMEMBER THAT ORDER IMPORTANT, AS RELATIVE PATHS DEPEND ON ABSOLUTE.
-## NOTE: THE DIRECTORY DOESN'T EXIST UNTIL AFTER KEYS HAVE BEEN MADE FOR THE FIRST TIME! 
-#for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"\
-#	"$revocation_certificate_default_directory_fullpath"
-for dir in "$synchronised_location_holding_dir_fullpath" "$public_keyring_default_directory_fullpath"
-do
-	# this valid form test works for sanitised directory paths too
-	test_file_path_valid_form "$dir"
-	return_code=$?
-	if [ $return_code -eq 0 ]
-	then
-		echo "DIRECTORY PATH IS OF VALID FORM"
-	else
-		msg="The valid form test FAILED and returned: $return_code. Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
-	fi	
-
-	# if the above test returns ok, ...
-	test_dir_path_access "$dir"
-	return_code=$?
-	if [ $return_code -eq 0 ]
-	then
-		echo "The full path to the DIRECTORY is: $dir"
-	else
-		msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
-		exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
-	fi
-done
+	echo "synchronised_location_holding_dir_fullpath:"
+	echo -e "$synchronised_location_holding_dir_fullpath"
+	echo && echo
+	
+	echo "public_keyring_default_directory_fullpath:"
+	echo -e "$public_keyring_default_directory_fullpath"
+	echo && echo
+	
+	echo "revocation_certificate_default_directory:"
+	echo -e "$revocation_certificate_default_directory"
+	echo && echo
 
 }
 
+###############################################################################
 
-##########################################################################################################
-
-
-###########################################################################################################
 # returns 
 function export_public_keys
 {
