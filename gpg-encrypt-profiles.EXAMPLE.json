@@ -1,0 +1,40 @@
+[
+	{
+		"profileID": "0001",
+		"profileName": "local admin",
+		"profileDescription": "gpg profile to public key encrypt local files",
+		"encryptionSystem": "public_key",
+		"outputFileFormat": "ascii",
+		"senderUID": "me@host1.org",
+		"recipientUIDList": [
+			"'me@host1.org'",
+			"'me@host2.org'"
+		]
+	},
+	{
+		"profileID": "0002",
+		"profileName": "cloud partners",
+		"profileDescription": "gpg profile to public key encrypt cloud business comms",
+		"encryptionSystem": "public_key",
+		"outputFileFormat": "binary",
+		"senderUID": "me@host1.org",
+		"recipientUIDList": [
+			"'other.dev@domain.com'",
+			"'cloud.dev@domain.co.uk'",
+			"'db.dev@domain.com'",
+			"'devops.dev@domain.co.uk'"
+		]
+	},
+	{
+		"profileID": "0003",
+		"profileName": "symmetric key test",
+		"profileDescription": "gpg profile to symmetric key encrypt",
+		"encryptionSystem": "symmetric_key",
+		"outputFileFormat": "ascii",
+		"senderUID": "me@host1.org",
+		"recipientUIDList": [
+			"'me@host1.org'",
+			"'me@host3.org'"
+		]
+	}
+]
