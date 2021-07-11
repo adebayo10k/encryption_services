@@ -16,6 +16,25 @@
 ##################################################################
 ##################################################################
 # THIS STUFF IS HAPPENING BEFORE MAIN FUNCTION CALL:
+#===================================
+
+# 1. MAKE SHARED LIBRARY FUNCTIONS AVAILABLE HERE
+
+# make all those library function available to this script
+shared_bash_functions_fullpath="${SHARED_LIBRARIES_DIR}/shared-bash-functions.sh"
+
+if [ -f "$shared_bash_functions_fullpath" ]
+then
+	echo "got our library functions file ok"
+else
+	echo "failed to get our functions library. Exiting now."
+	exit 1
+fi
+
+source "$shared_bash_functions_fullpath"
+
+
+# 2. MAKE SCRIPT-SPECIFIC FUNCTIONS AVAILABLE HERE
 
 # must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course.
 
@@ -182,19 +201,6 @@ function main
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
-# exit program with non-zero exit code
-function exit_with_error()
-{	
-	error_code="$1"
-	error_message="$2"
-
-	echo "EXIT CODE: $error_code" | tee -a $LOG_FILE
-	echo "$error_message" | tee -a $LOG_FILE && echo && sleep 1
-	echo "USAGE: $(basename $0)" | tee -a $LOG_FILE && echo && sleep 1
-
-	exit $error_code
-}
-
 ###############################################################################################
 # check whether dependencies are already installed ok on this system
 function check_program_requirements() 
@@ -210,7 +216,7 @@ function check_program_requirements()
 			echo "${program_name} is NOT installed." | tee -a $LOG_FILE
 			echo "program dependencies are: ${program_dependencies[@]}" | tee -a $LOG_FILE
   		msg="Required program not found. Exiting now..."
-			exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
+			lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 		fi
 	done
 }
@@ -230,7 +236,7 @@ function verify_and_validate_program_arguments(){
 	if [ $actual_no_of_program_parameters -ne $expected_no_of_program_parameters ]
 	then
 		msg="Incorrect number of command line args. Exiting now..."
-		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
+		lib10k_exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 
 	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
@@ -307,7 +313,7 @@ function create_all_synchronised_dirs()
 			echo "synchronised_dir_fullpath CREATION WAS SUCCESSFUL"
 		else
 			msg="The mkdir of synchronised_dir_fullpath FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
+			lib10k_exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
 		fi	
 	fi
 
@@ -335,7 +341,7 @@ function create_all_synchronised_dirs()
 				echo "subdir CREATION WAS SUCCESSFUL"
 			else
 				msg="The mkdir of subdir FAILED and returned: $return_code. Exiting now..."
-				exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
+				lib10k_exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
 			fi	
 		fi
 	done
@@ -369,7 +375,7 @@ function import_key_management_configuration()
 			'encryption_system')	echo "nil"; exit 1 # debug
 				;;
 			*) 		msg="Unrecognised profile property name. Exiting now..."
-					exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+					lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 				;; 
 		esac
 
@@ -388,7 +394,7 @@ function import_key_management_configuration()
 			echo "DIRECTORY PATH IS OF VALID FORM"
 		else
 			msg="The valid form test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+			lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 		fi	
 
 		# if the above test returns ok, ...
@@ -399,7 +405,7 @@ function import_key_management_configuration()
 			echo "The full path to the DIRECTORY is: $dir"
 		else
 			msg="The DIRECTORY path access test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
+			lib10k_exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 		fi
 	done
 
@@ -789,7 +795,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 	
 	backup_public_keyrings
@@ -811,7 +817,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	generate_revocation_certificate
@@ -832,7 +838,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF REVOCATION CERT. GENERATION... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 	
 	encrypt_revocation_certificates
@@ -853,7 +859,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF REVOCATION CERT. ENCRYPTION... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	rename_and_move_revocation_certificates
@@ -875,7 +881,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF KEY GENERATION... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	export_public_keys
@@ -896,7 +902,7 @@ function generate_and_manage_keys
 	else
 		# exit, as nothing further can be done
 		msg="ABORTING DUE TO FAILURE OF PUBLIC KEYS EXPORT... Exiting now..."
-		exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+		lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 	fi
 
 	echo && echo "[7] WE'VE NOW COMPLETED THE WHOLE PROCESS OF KEY GENERATION AND MANAGEMENT...WAIT" && echo

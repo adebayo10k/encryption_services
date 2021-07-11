@@ -15,8 +15,27 @@
 ##################################################################
 ##################################################################
 # THIS STUFF IS HAPPENING BEFORE MAIN FUNCTION CALL:
+#===================================
 
-# must resolve canonical_fullpath here, in order to be able to include sourced functions BEFORE we call main, and outside of any other functions, of course.
+# 1. MAKE SHARED LIBRARY FUNCTIONS AVAILABLE HERE
+
+# make all those library function available to this script
+shared_bash_functions_fullpath="${SHARED_LIBRARIES_DIR}/shared-bash-functions.sh"
+
+if [ -f "$shared_bash_functions_fullpath" ]
+then
+	echo "got our library functions ok"
+else
+	echo "failed to get our functions library. Exiting now."
+	exit 1
+fi
+
+source "$shared_bash_functions_fullpath"
+
+
+# 2. MAKE SCRIPT-SPECIFIC FUNCTIONS AVAILABLE HERE
+
+# must resolve canonical_fullpath here, in order to be able to include sourced function files BEFORE we call main, and  outside of any other functions defined here, of course.
 
 # at runtime, command_fullpath may be either a symlink file or actual target source file
 command_fullpath="$0"
@@ -27,7 +46,9 @@ command_basename="$(basename $0)"
 # we'll test whether a symlink, then use readlink -f or realpath -e although those commands return canonical file whether symlink or not.
 # 
 canonical_fullpath="$(readlink -f $command_fullpath)"
+canonical_dirname="$(dirname $canonical_fullpath)"
 
+# this is just development debug information
 if [ -h "$command_fullpath" ]
 then
 	echo "is symlink"
@@ -38,8 +59,7 @@ else
 fi
 
 # included source files for json profile import functions
-source "$(dirname $canonical_fullpath)/preset-profile-builder.inc.sh"
-
+source "${canonical_dirname}/preset-profile-builder.inc.sh"
 
 
 # THAT STUFF JUST HAPPENED BEFORE MAIN FUNCTION CALL!
@@ -69,13 +89,7 @@ function main
 
 	no_of_program_parameters=$#
 	tutti_param_string="$@"
-
 	#echo $tutti_param_string
-	
-	
-	line_type="" # global...
-	test_line="" # global...
-
 	declare -a incoming_array=()
 
 	################################################
@@ -124,13 +138,8 @@ function main
 	# check program dependencies and requirements
 	check_program_requirements
 
-	# do installer-like tasks
-	do_installer_tasks
-
 	# verify and validate program positional parameters
 	verify_and_validate_program_arguments
-
-	#declare -a authorised_host_list=($E530c_hostname $E6520_hostname $E5490_hostname)
 
 	# entry test to prevent running this program on an inappropriate host
 	# entry tests apply only to those highly host-specific or filesystem-specific programs that are hard to generalise
@@ -190,9 +199,6 @@ function main
 	echo "recipient_uid_list size:"
 	echo "${#recipient_uid_list[@]}"
 	echo && echo
-
-
-	exit 0
 	
 	# CHECK THE STATE OF THE ENCRYPTION ENVIRONMENT:
 	check_encryption_platform
@@ -208,7 +214,7 @@ function main
 	else
 		# this will soon be possible!
 		msg="TRIED TO DO FILE ENCRYPTION WITHOUT ANY INCOMING FILEPATH PARAMETERS. Exiting now..."
-		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
+		lib10k_exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 	
 	
@@ -221,28 +227,6 @@ function main
 ###############################################################################################
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
-
-# task for our future installer. simple for now.
-# bit contrived to be doing this at runtime, since we don't know from where running script was actually called.
-function do_installer_tasks()
-{	
-	mkdir -p "${HOME}/.local/share/adebayo10k"	# 2>installation logfile 
-	#ln -s  "${HOME}/.local/share/adebayo10k/preset-profile-builder.inc.sh" 
-}
-
-################################################################
-# exit program with non-zero exit code
-function exit_with_error()
-{	
-	error_code="$1"
-	error_message="$2"
-
-	echo "EXIT CODE: $error_code" | tee -a $LOG_FILE
-	echo "$error_message" | tee -a $LOG_FILE && echo && sleep 1
-	echo "USAGE: $(basename $0) ABSOLUTE_FILEPATH..." | tee -a $LOG_FILE && echo && sleep 1
-
-	exit $error_code
-}
 
 ################################################################
 # check whether dependencies are already installed ok on this system
@@ -259,7 +243,7 @@ function check_program_requirements()
 			echo "${program_name} is NOT installed." | tee -a $LOG_FILE
 			echo "program dependencies are: ${program_dependencies[@]}" | tee -a $LOG_FILE
   		msg="Required program not found. Exiting now..."
-			exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
+			lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 		fi
 	done
 }
@@ -288,7 +272,7 @@ function verify_and_validate_program_arguments()
 		verify_program_args
 	else
 		msg="Incorrect number of command line arguments. Exiting now..."
-		exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
+		lib10k_exit_with_error "$E_INCORRECT_NUMBER_OF_ARGS" "$msg"
 	fi
 
 }
@@ -319,7 +303,7 @@ function display_program_header()
 	
 	if type cowsay > /dev/null 2>&1
 	then
-		cowsay "YES, ${USER}!"
+		cowsay "Howdooo, ${USER}!"
 	fi
 }
 
@@ -369,7 +353,7 @@ function verify_program_args
 			echo "VALID FORM TEST PASSED" && echo
 		else
 			msg="The valid form test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+			lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 		fi
 	done
 	
@@ -384,7 +368,7 @@ function verify_program_args
 			echo "REGULAR FILE READ TEST PASSED" && echo
 		else
 			msg="The file path access test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
+			lib10k_exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 		fi
 	done
 	
@@ -401,7 +385,7 @@ function verify_program_args
 			echo "HOLDING DIRECTORY ACCESS READ TEST PASSED" && echo
 		else
 			msg="The directory path access test FAILED and returned: $return_code. Exiting now..."
-			exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
+			lib10k_exit_with_error "$E_REQUIRED_FILE_NOT_FOUND" "$msg"
 		fi
 	done
 
@@ -728,7 +712,7 @@ function set_command_parameters
 		output_file_extension=".gpg"
 	else
 		msg="FAILSAFE BRANCH ENTERED. Exiting now..."
-		exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
+		lib10k_exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
 	fi	
 
 	if [ $encryption_system == "public_key" ]
@@ -756,7 +740,7 @@ function set_command_parameters
 
 	else
 		msg="FAILSAFE BRANCH ENTERED. Exiting now..."
-		exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
+		lib10k_exit_with_error "$E_OUT_OF_BOUNDS_BRANCH_ENTERED" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
@@ -791,7 +775,7 @@ function check_gpg_user_keys
 	else
 		# -> exit due to failure of any of the above tests:
 		msg="FAILED TO FIND THE KEY-PAIR FINGERPRINT FOR THAT USER-ID. Exiting now..."
-		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
+		lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
@@ -838,7 +822,7 @@ function gpg_encrypt_files
 			echo && echo "SUCCESSFUL VERIFICATON OF ENCRYPTION encrypt_result: $encrypt_result"
 		else
 			msg="FAILURE REPORT. Unexpected encrypt_result: $encrypt_result. Exiting now..."
-			exit_with_error "$E_UNKNOWN_ERROR" "$msg"
+			lib10k_exit_with_error "$E_UNKNOWN_ERROR" "$msg"
 		fi	
 	done
 
@@ -878,7 +862,7 @@ function check_encryption_platform
 	else
 		# -> exit due to failure of any of the above tests:
 		msg="FAILED TO FIND THE REQUIRED OpenPGP PROGRAM. Exiting now..."
-		exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
+		lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
