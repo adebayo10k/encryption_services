@@ -32,9 +32,6 @@ function import_file_encryption_configuration ()
 	# put the keys into and indexed array and then loop over it to filter for each profile 
 	# data, one profile at a time
 
-	#OIFS=$IFS
-	#IFS='|'
-
 	profile_id_array=( $profile_id_string )
 	echo "profile_id_array:"
 	echo "${profile_id_array[@]}"
@@ -42,8 +39,6 @@ function import_file_encryption_configuration ()
 	echo "profile_id_array size:"
 	echo "${#profile_id_array[@]}"
 	echo && echo
-
-	#IFS=$OIFS
 
 	for profile_id in "${profile_id_array[@]}"
 	do
@@ -97,10 +92,6 @@ function store_profiles()
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$profile_name_string"
 
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
-
 	###
 
 	profile_description_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .profileDescription') 
@@ -111,10 +102,6 @@ function store_profiles()
 	primary_key_string="${id}^^profile_description"
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$profile_description_string"
-
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
 
 	###
 
@@ -127,10 +114,6 @@ function store_profiles()
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$encryption_system_string"
 
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
-
 	###
 
 	output_file_format_string=$(cat "$config_file_fullpath" | jq -r --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .outputFileFormat') 
@@ -141,10 +124,6 @@ function store_profiles()
 	primary_key_string="${id}^^output_file_format"
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$output_file_format_string"
-
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
 
 	###
 
@@ -157,10 +136,6 @@ function store_profiles()
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$sender_uid_string"
 
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
-
 	###
 
 	recipient_uid_list_string=$(cat "$config_file_fullpath" | jq -j --arg profile_id "$id" '.[] | select(.profileID==$profile_id) | .recipientUIDList[]' | sed "s/''/|/g" | sed "s/^'//" | sed "s/'$//") 
@@ -168,16 +143,9 @@ function store_profiles()
 	echo -e "$recipient_uid_list_string"
 	echo && echo
 
-	# we actually only need an IFS separated string now
-	# try jq -j, with sed replacing space with |
-
 	primary_key_string="${id}^^recipient_uid_list"
 	profile_keys_indexed_array+=( "${primary_key_string}" )
 	profile_key_value_assoc_array["$primary_key_string"]="$recipient_uid_list_string"
-
-	echo $primary_key_string
-	echo ${profile_keys_indexed_array[@]}
-	echo && echo "###"
 
 	###
 
@@ -200,7 +168,7 @@ function get_user_profile_choice()
     else
       ## exit with error code and message
       msg="The profile id you entered was too bad. Exiting now..."
-	  exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
+	  lib10k_exit_with_error "$E_UNEXPECTED_BRANCH_ENTERED" "$msg"
     fi
 	
 }
@@ -212,11 +180,7 @@ function assign_chosen_profile_values()
 
 	echo "passed out chosen_profile_id : $chosen_profile_id" 
 
-	# we now want to iterate over profile_keys_indexed_array matching the values that start with our $chosen_profile_id.
-	# if match use as key to get the value from $profile_key_value_assoc_array.
-	# case key string ends ... assign value to ...
-
-	# order or iteration is not important, so think we just need the associative array.
+	# order of iteration is not important, so we just need the associative array.
 
 	for key in "${!profile_key_value_assoc_array[@]}"
 	do
@@ -249,7 +213,7 @@ function assign_chosen_profile_values()
 										IFS=$OIFS
 					;;
 				*) 		msg="Unrecognised profile property name. Exiting now..."
-	  					exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
+	  					lib10k_exit_with_error "$E_UNEXPECTED_ARG_VALUE" "$msg"
 					;; 
 			esac
 		fi
