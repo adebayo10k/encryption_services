@@ -248,36 +248,6 @@ function verify_and_validate_program_arguments()
 }
 
 ####################################################################################################
-function display_program_header()
-{
-	echo "USAGE: $(basename $0) ABSOLUTE_FILEPATH..." # one or more strings required (fullpaths to files)
-
-	echo "OUR CURRENT SHELL LEVEL IS: $SHLVL"
-
-	# Display a program header and give user option to leave if here in error:
-	echo
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo -e "		\033[33m||            Welcome to the FILE ENCRYPTER UTILITY               ||  author: adebayo10k\033[0m";  
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo
-
-	# REPORT SOME SCRIPT INSTALLATION VARIABLES
-	# 
-	echo "command_fullpath : $command_fullpath"
-	echo "command_dirname : $command_dirname"
-	echo "command_basename : $command_basename"
-
-	echo "canonical_fullpath : $canonical_fullpath"
-	echo "canonical_dirname : $canonical_dirname"
-	echo "canonical_basename : $canonical_basename"
-	
-	if type cowsay > /dev/null 2>&1
-	then
-		cowsay "Howdooo, ${USER}!"
-	fi
-}
-
-####################################################################################################
 function get_user_permission_to_proceed()
 {
 	echo " Type q to quit NOW, or press ENTER to continue."
@@ -834,27 +804,6 @@ function check_encryption_platform
 		msg="FAILED TO FIND THE REQUIRED OpenPGP PROGRAM. Exiting now..."
 		lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
 	fi
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-#########################################################################################################
-##########################################################################################################
-# keep sanitise functions separate and specialised, as we may add more to specific value types in future 
-function sanitise_value ##
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	# sanitise values
-	# - trim leading and trailing space characters
-	test_line="${1}"
-	echo "test line on entering "${FUNCNAME[0]}" is: $test_line" && echo
-
-	# TRIM TRAILING AND LEADING SPACES AND TABS
-	test_line=${test_line%%[[:blank:]]}
-	test_line=${test_line##[[:blank:]]}
-
-	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
 
 	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
 }

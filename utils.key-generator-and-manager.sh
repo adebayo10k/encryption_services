@@ -211,28 +211,6 @@ function verify_and_validate_program_arguments(){
 }
 
 ###############################################################################################
-# Display a program header:
-function display_program_header(){
-
-	echo
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo -e "		\033[33m||        Welcome to KEY GENERATION AND MANAGEMENT UTILITY        ||  author: adebayo10k\033[0m";  
-	echo -e "		\033[33m===================================================================\033[0m";
-	echo
-
-	# REPORT SOME SCRIPT META-DATA
-	echo "The absolute path to this script is:	$0"
-	echo "Script parent directory is:		$(dirname $0)"
-	echo "Script filename is:			$(basename $0)" && echo
-
-	if type cowsay > /dev/null 2>&1
-	then
-		cowsay "Hello, ${USER}!"
-	fi
-		
-}
-
-###############################################################################################
 # give user option to leave if here in error:
 function get_user_permission_to_proceed(){
 
@@ -332,9 +310,12 @@ function import_key_management_configuration()
 	do
 
 		# sanitise absolute paths by trimming trailing / etc.
-		sanitise_absolute_path_value "${dir}"
-		echo "testline: $test_line"
+		# sanitise_absolute_path_value "${dir}"
+		# echo "testline: $test_line"
 
+		make_abs_pathname "${dir}"
+		echo "test_line has the value: $test_line"
+		
 		case $dir in
 			$synchronised_location_holding_dir_fullpath)		synchronised_location_holding_dir_fullpath="$test_line"
 				;;
@@ -883,42 +864,6 @@ function generate_and_manage_keys
 }
 
 ###############################################################################################
-###############################################################################################
-
-##########################################################################################################
-# keep sanitise functions separate and specialised, as we may add more to specific value types in future
-# FINAL OPERATION ON VALUE, SO GLOBAL test_line SET HERE. RENAME CONCEPTUALLY DIFFERENT test_line NAMESAKES
-function sanitise_absolute_path_value ##
-{
-	echo && echo "ENTERED INTO FUNCTION ${FUNCNAME[0]}" && echo
-
-	# sanitise values
-	# - trim leading and trailing space characters
-	# - trim trailing / for all paths
-	test_line="${1}"
-	echo "test line on entering "${FUNCNAME[0]}" is: $test_line" && echo
-
-	while [[ "$test_line" == *'/' ]] ||\
-	 [[ "$test_line" == *[[:blank:]] ]] ||\
-	 [[ "$test_line" == [[:blank:]]* ]]
-	do 
-		# TRIM TRAILING AND LEADING SPACES AND TABS
-		# backstop code, as with leading spaces, config file line wouldn't even have been
-		# recognised as a value!
-		test_line=${test_line%%[[:blank:]]}
-		test_line=${test_line##[[:blank:]]}
-
-		# TRIM TRAILING / FOR ABSOLUTE PATHS:
-		test_line=${test_line%'/'}
-	done
-
-	echo "test line after trim cleanups in "${FUNCNAME[0]}" is: $test_line" && echo
-
-	echo && echo "LEAVING FROM FUNCTION ${FUNCNAME[0]}" && echo
-}
-
-##########################################################################################################
-##########################################################################################################
 
 # firstly, we test that the parameter we got is of the correct form for an absolute file | sanitised directory path 
 # if this test fails, there's no point doing anything further
