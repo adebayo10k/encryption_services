@@ -81,6 +81,11 @@ function main
 	actual_no_of_program_parameters=$#
 
 	config_file_fullpath="${HOME}/.config/gpg-key-backup-config.json" # a full path to a file
+
+	program_title=""
+	original_author=""
+	program_dependencies=(jq cowsay vi file-encrypter.sh gpg)
+
 	test_line="" # global...
 
 	declare -a file_fullpaths_to_encrypt=()
@@ -116,7 +121,7 @@ function main
 	###############################################################################################
 
 	# check program dependencies and requirements
-	check_program_requirements
+	check_program_requirements "${program_dependencies[@]}"
 	
 	# verify and validate program positional parameters
 	verify_and_validate_program_arguments
@@ -183,26 +188,6 @@ function main
 ###############################################################################################
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
-
-###############################################################################################
-# check whether dependencies are already installed ok on this system
-function check_program_requirements() 
-{
-	declare -a program_dependencies=(jq cowsay vi file-encrypter.sh gpg)
-
-	for program_name in ${program_dependencies[@]}
-	do
-	  if type $program_name >/dev/null 2>&1
-		then
-			echo "$program_name already installed OK" | tee -a $LOG_FILE
-		else
-			echo "${program_name} is NOT installed." | tee -a $LOG_FILE
-			echo "program dependencies are: ${program_dependencies[@]}" | tee -a $LOG_FILE
-  		msg="Required program not found. Exiting now..."
-			lib10k_exit_with_error "$E_REQUIRED_PROGRAM_NOT_FOUND" "$msg"
-		fi
-	done
-}
 
 ###############################################################################################
 # entry test to prevent running this program on an inappropriate host
