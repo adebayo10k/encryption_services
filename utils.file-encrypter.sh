@@ -68,21 +68,34 @@ fi
 source "${canonical_dirname}/preset-profile-builder.inc.sh"
 
 
-# THAT STUFF JUST HAPPENED BEFORE MAIN FUNCTION CALL!
+# THAT STUFF JUST HAPPENED (EXECUTED) BEFORE MAIN FUNCTION CALL!
 ##################################################################
 ##################################################################
 
 
 function main
 {	
-	###############################################################################################
+	#######################################################################
 	# GLOBAL VARIABLE DECLARATIONS:
-	###############################################################################################
+	#######################################################################
+
+	actual_host=$(hostname)
+	unset authorised_host_list
+	declare -a authorised_host_list=($HOST_0065 $HOST_0054 $HOST_R001 $HOST_R002)  # allow | deny
+	if [[ $(declare -a | grep 'authorised_host_list' 2>/dev/null) ]]
+	then
+		entry_test
+	fi
 
 	no_of_program_parameters=$#
 	tutti_param_string="$@"
 	#echo $tutti_param_string
 	declare -a incoming_array=()
+
+	declare -i max_expected_no_of_program_parameters=0
+	declare -i min_expected_no_of_program_parameters=0
+	declare -ir actual_no_of_program_parameters=$#
+	all_the_parameters_string="$@"
 
 	program_title=""
 	original_author=""
@@ -131,14 +144,6 @@ function main
 	# verify and validate program positional parameters
 	verify_and_validate_program_arguments
 
-	# entry test to prevent running this program on an inappropriate host
-	# entry tests apply only to those highly host-specific or filesystem-specific programs that are hard to generalise
-	if [[ $(declare -a | grep 'authorised_host_list' 2>/dev/null) ]]; then
-		entry_test
-	else
-		echo "entry test skipped..." && sleep 2 && echo
-	fi
-	
 	
 	###############################################################################################
 	# $SHLVL DEPENDENT FUNCTION CALLS:	
@@ -218,15 +223,6 @@ function main
 ####  FUNCTION DECLARATIONS  
 ###############################################################################################
 
-###############################################################################################
-# entry test to prevent running this program on an inappropriate host
-function entry_test()
-{
-	#
-	:
-}
-
-####################################################################################################
 function verify_and_validate_program_arguments()
 {
 #
