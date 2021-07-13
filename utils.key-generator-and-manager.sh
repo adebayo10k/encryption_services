@@ -20,7 +20,7 @@
 
 # 1. MAKE SHARED LIBRARY FUNCTIONS AVAILABLE HERE
 
-# make all those library function available to this script
+# make all the shared library functions available to this script
 shared_bash_functions_fullpath="${SHARED_LIBRARIES_DIR}/shared-bash-functions.sh"
 shared_bash_constants_fullpath="${SHARED_LIBRARIES_DIR}/shared-bash-constants.inc.sh"
 
